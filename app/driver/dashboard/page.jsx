@@ -9,10 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import dynamic from "next/dynamic";
 
-
 const MapComponent = dynamic(() => import("@/components/Drivermap"), {
   ssr: false, // ✅ disables SSR for Leaflet
 });
+
 import {
   MapPin,
   Navigation,
@@ -40,52 +40,42 @@ import SupplyChainAPI from "@/backend/lib/api";
 
 function DriverDashboardContent() {
   const searchParams = useSearchParams();
-  const urlDriverId = searchParams.get('driverId') || "DRIVER001";
+  const urlDriverId = searchParams.get("driverId") || "DRIVER001";
   const [selectedDriverId, setSelectedDriverId] = useState(urlDriverId);
   const [availableDrivers, setAvailableDrivers] = useState([]);
 
   // Fetch available drivers from database
   const fetchAvailableDrivers = async () => {
     try {
-      console.log('Fetching drivers from API...');
-      const response = await fetch('http://localhost:5000/api/drivers');
-      console.log('Response status:', response.status);
-      
+      console.log("Fetching drivers from API...");
+      const response = await fetch("http://localhost:5000/api/drivers");
+      console.log("Response status:", response.status);
+
       if (response.ok) {
         const driversData = await response.json();
-        console.log('Drivers data received:', driversData);
-        
+        console.log("Drivers data received:", driversData);
+
         if (Array.isArray(driversData) && driversData.length > 0) {
-          const formattedDrivers = driversData.map(driver => ({
+          const formattedDrivers = driversData.map((driver) => ({
             id: driver.driverId || driver.id,
-            name: driver.name || 'Unknown Driver',
-            status: driver.status || 'offline'
+            name: driver.name || "Unknown Driver",
+            status: driver.status || "offline",
           }));
-          
-          console.log('Formatted drivers:', formattedDrivers);
+
+          console.log("Formatted drivers:", formattedDrivers);
           setAvailableDrivers(formattedDrivers);
         } else {
-          console.log('No drivers found in response, using fallback');
-          setAvailableDrivers([
-            { id: "DRIVER001", name: "John Smith", status: "online" },
-            { id: "DRIVER002", name: "Sarah Johnson", status: "offline" },
-            { id: "DRIVER003", name: "Mike Wilson", status: "online" },
-          ]);
+          console.log("No drivers found in response, using fallback");  
         }
       } else {
-        console.error('Failed to fetch drivers, status:', response.status);
+        console.error("Failed to fetch drivers, status:", response.status);
         const errorText = await response.text();
-        console.error('Error response:', errorText);
+        console.error("Error response:", errorText);
       }
     } catch (error) {
-      console.error('Error fetching drivers:', error);
-      console.error('Error details:', error.message);
+      console.error("Error fetching drivers:", error);
+      console.error("Error details:", error.message);
       // Set fallback drivers on error
-      setAvailableDrivers([
-        { id: "DRIVER001", name: "John Smith", status: "online" },
-        { id: "DRIVER002", name: "Sarah Johnson", status: "offline" },
-        { id: "DRIVER003", name: "Mike Wilson", status: "online" },
-      ]);
     }
   };
 
@@ -100,21 +90,7 @@ function DriverDashboardContent() {
   }, []);
 
   // Add fallback drivers if API fails
-  useEffect(() => {
-    if (availableDrivers.length === 0) {
-      // Set some fallback drivers after a delay
-      const timer = setTimeout(() => {
-        console.log('Setting fallback drivers...');
-        setAvailableDrivers([
-          { id: "DRIVER001", name: "John Smith", status: "online" },
-          { id: "DRIVER002", name: "Sarah Johnson", status: "offline" },
-          { id: "DRIVER003", name: "Mike Wilson", status: "online" },
-        ]);
-      }, 3000); // Wait 3 seconds before showing fallback
 
-      return () => clearTimeout(timer);
-    }
-  }, [availableDrivers.length]);
 
   const {
     currentDelivery,
@@ -156,7 +132,7 @@ function DriverDashboardContent() {
   useEffect(() => {
     const fetchRoute = async () => {
       if (!currentLocation || !currentDelivery?.destination) return;
-      
+
       try {
         const coordinates = [
           [currentLocation.lng, currentLocation.lat], // Current position
@@ -166,7 +142,10 @@ function DriverDashboardContent() {
         const route = await SupplyChainAPI.getRouteDirections(coordinates);
         if (route && route.coordinates) {
           // Convert route coordinates to [lat, lng] format for Leaflet
-          const routeCoords = route.coordinates.map(coord => [coord[1], coord[0]]);
+          const routeCoords = route.coordinates.map((coord) => [
+            coord[1],
+            coord[0],
+          ]);
           setRouteCoords(routeCoords);
         }
       } catch (err) {
@@ -174,7 +153,7 @@ function DriverDashboardContent() {
         // Fallback to straight line if route fails
         setRouteCoords([
           [currentLocation.lat, currentLocation.lng],
-          [currentDelivery.destination.lat, currentDelivery.destination.lng]
+          [currentDelivery.destination.lat, currentDelivery.destination.lng],
         ]);
       }
     };
@@ -192,7 +171,7 @@ function DriverDashboardContent() {
           `http://localhost:5000/api/deliveries/${currentDelivery._id}/remaining-time?currentLat=${currentLocation.lat}&currentLng=${currentLocation.lng}`
         );
         const data = await response.json();
-        
+
         if (data.remainingTime !== undefined) {
           setRemainingTime(data.remainingTime);
           setNextCheckpoint(data.nextCheckpoint);
@@ -203,7 +182,7 @@ function DriverDashboardContent() {
     };
 
     calculateRemainingTime();
-    
+
     // Update every minute
     const interval = setInterval(calculateRemainingTime, 60000);
     return () => clearInterval(interval);
@@ -225,32 +204,43 @@ function DriverDashboardContent() {
       const response = await fetch(
         `http://localhost:5000/api/deliveries/${deliveryId}/status`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status: newStatus })
+          body: JSON.stringify({ status: newStatus }),
         }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log("Status update successful:", data);
-        
+
         // Show success message with better formatting
-        const successMessage = newStatus === "delivered" 
-          ? `🎉 Delivery Completed Successfully!\n\nOrder: ${currentDelivery.orderId}\nCustomer: ${currentDelivery.customerName}\nStatus: ${data.currentStatus || newStatus}`
-          : `✅ Successfully updated status to ${data.currentStatus || newStatus}`;
-        
+        const successMessage =
+          newStatus === "delivered"
+            ? `🎉 Delivery Completed Successfully!\n\nOrder: ${
+                currentDelivery.orderId
+              }\nCustomer: ${currentDelivery.customerName}\nStatus: ${
+                data.currentStatus || newStatus
+              }`
+            : `✅ Successfully updated status to ${
+                data.currentStatus || newStatus
+              }`;
+
         alert(successMessage);
-        
+
         // Refresh the delivery data to show updated status
         if (loadCurrentDelivery) {
           loadCurrentDelivery();
         }
       } else {
         const errorData = await response.json();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+        throw new Error(
+          `HTTP error! status: ${response.status}, message: ${
+            errorData.error || "Unknown error"
+          }`
+        );
       }
     } catch (err) {
       console.error("Status update error:", err);
@@ -276,18 +266,24 @@ function DriverDashboardContent() {
     async (e) => {
       const file = e.target.files?.[0];
       if (!file || !currentDelivery) return;
-      
+
       try {
         // Show loading message
         alert("📸 Uploading photo...");
-        
+
         await uploadDeliveryPhoto(file);
         alert("✅ Photo uploaded successfully!");
 
         // Notify supplier and customer
         const deliveryId = currentDelivery._id || currentDelivery.id;
-        const message = `Parcel picked up for order ${currentDelivery.orderId || deliveryId}.`;
-        await SupplyChainAPI.sendDeliveryNotification(deliveryId, "picked_up", message);
+        const message = `Parcel picked up for order ${
+          currentDelivery.orderId || deliveryId
+        }.`;
+        await SupplyChainAPI.sendDeliveryNotification(
+          deliveryId,
+          "picked_up",
+          message
+        );
 
         // Update status via existing route
         await handleStatusUpdate("picked_up");
@@ -306,15 +302,18 @@ function DriverDashboardContent() {
     async (checkpointId) => {
       try {
         console.log(`Checkpoint ${checkpointId} reached`);
-        console.log('Current delivery checkpoints:', currentDelivery?.checkpoints);
+        console.log(
+          "Current delivery checkpoints:",
+          currentDelivery?.checkpoints
+        );
         alert("📍 Updating checkpoint status...");
-        
+
         await updateCheckpointStatus(
           checkpointId,
           "arrived",
           "Checkpoint reached by driver"
         );
-        
+
         alert("✅ Checkpoint status updated successfully!");
       } catch (err) {
         console.error("Checkpoint update failed:", err);
@@ -342,7 +341,7 @@ function DriverDashboardContent() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/driver/navigation?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`
+        `http://localhost:5000/api/utils/navigation?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`
       );
 
       if (!response.ok) throw new Error("Failed to fetch navigation data");
@@ -374,8 +373,14 @@ function DriverDashboardContent() {
     if (!currentDelivery) return;
     try {
       const deliveryId = currentDelivery._id || currentDelivery.id;
-      const message = `Parcel delivered for order ${currentDelivery.orderId || deliveryId}.`;
-      await SupplyChainAPI.sendDeliveryNotification(deliveryId, "delivered", message);
+      const message = `Parcel delivered for order ${
+        currentDelivery.orderId || deliveryId
+      }.`;
+      await SupplyChainAPI.sendDeliveryNotification(
+        deliveryId,
+        "delivered",
+        message
+      );
       await handleStatusUpdate("delivered");
     } catch (err) {
       console.error("Delivered notification failed:", err);
@@ -395,24 +400,24 @@ function DriverDashboardContent() {
     if (!currentDelivery) return null;
 
     return {
-      id: currentDelivery.id || "DEL-2024-001",
-      packageId: currentDelivery.orderId || "PKG-789",
+      id: currentDelivery.id ,
+      packageId: currentDelivery.orderId ,
       from:
         currentDelivery.origin?.name ||
-        currentDelivery.from ||
-        "Warehouse A, Mumbai",
+        currentDelivery.from 
+        ,
       to:
         currentDelivery.destination?.name ||
-        currentDelivery.to ||
-        "Customer Location, Pune",
-      customerName: currentDelivery.customerName || "Customer",
-      customerPhone: currentDelivery.customerPhone || "+91 98765 43210",
+        currentDelivery.to 
+        ,
+      customerName: currentDelivery.customerName ,
+      customerPhone: currentDelivery.customerPhone ,
       estimatedTime: currentDelivery.estimatedDelivery
         ? new Date(currentDelivery.estimatedDelivery).toLocaleTimeString()
         : "2h 30m",
       distance: currentDelivery.totalDistance
         ? `${currentDelivery.totalDistance} km`
-        : "148 km",
+        : "0 km",
       status: currentDelivery.status || "in_transit",
       checkpoints: currentDelivery.route || [],
     };
@@ -432,7 +437,6 @@ function DriverDashboardContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading dashboard...</p>
         </div>
       </div>
     );
@@ -585,7 +589,10 @@ function DriverDashboardContent() {
                               className="bg-blue-100 text-blue-700"
                             >
                               <Clock className="h-3 w-3 mr-1" />
-                              {remainingTime > 0 ? `${remainingTime} min remaining` : formattedDelivery.estimatedTime} ETA
+                              {remainingTime > 0
+                                ? `${remainingTime} min remaining`
+                                : formattedDelivery.estimatedTime}{" "}
+                              ETA
                             </Badge>
                           )}
                         </div>
@@ -622,8 +629,14 @@ function DriverDashboardContent() {
               <Button
                 size="sm"
                 variant={isTracking ? "outline" : "default"}
-                className={isTracking ? "bg-white text-gray-800" : "bg-gray-800 hover:bg-gray-900"}
-                onClick={() => (isTracking ? stopLocationTracking() : startLocationTracking())}
+                className={
+                  isTracking
+                    ? "bg-white text-gray-800"
+                    : "bg-gray-800 hover:bg-gray-900"
+                }
+                onClick={() =>
+                  isTracking ? stopLocationTracking() : startLocationTracking()
+                }
               >
                 {isTracking ? (
                   <>
@@ -699,7 +712,7 @@ function DriverDashboardContent() {
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="current">Current</TabsTrigger>
                 <TabsTrigger value="stats">Stats</TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
+                <TabsTrigger value="history">Next Delivery</TabsTrigger>
               </TabsList>
 
               {/* Current Delivery Tab */}
@@ -770,7 +783,9 @@ function DriverDashboardContent() {
                           <div>
                             <p className="text-gray-600">ETA</p>
                             <p className="font-medium">
-                              {remainingTime > 0 ? `${remainingTime} min` : formattedDelivery.estimatedTime}
+                              {remainingTime > 0
+                                ? `${remainingTime} min`
+                                : formattedDelivery.estimatedTime}
                             </p>
                           </div>
                         </div>
@@ -862,7 +877,8 @@ function DriverDashboardContent() {
                                     {checkpoint.name}
                                   </p>
                                   <p className="text-xs text-gray-600">
-                                    {checkpoint.location?.address || checkpoint.estimatedArrival
+                                    {checkpoint.location?.address ||
+                                    checkpoint.estimatedArrival
                                       ? new Date(
                                           checkpoint.estimatedArrival
                                         ).toLocaleTimeString()
@@ -1105,30 +1121,17 @@ function DriverDashboardContent() {
                         {formattedStats.onTimeRate}%
                       </span>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Vehicle Status</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Fuel Level</span>
-                      <div className="flex items-center gap-2">
-                        <Progress value={75} className="w-20 h-2" />
-                        <span className="text-sm font-medium">75%</span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Distance Covered</span>
+                      <span className="font-medium">
+                        {formattedStats.weeklyDistance || "1,247"} km
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">GPS Status</span>
                       <Badge variant={isTracking ? "default" : "destructive"}>
                         {isTracking ? "Active" : "Inactive"}
                       </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Next Service</span>
-                      <span className="text-sm font-medium">2,500 km</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -1138,7 +1141,7 @@ function DriverDashboardContent() {
               <TabsContent value="history" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Recent Deliveries</CardTitle>
+                    <CardTitle className="text-lg">Next Deliveries</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
@@ -1173,34 +1176,10 @@ function DriverDashboardContent() {
                         <div className="text-center py-4">
                           <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-600">
-                            No recent deliveries
+                            No Next deliveries
                           </p>
                         </div>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Weekly Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-
-                      <div className="flex justify-between">
-                        <span className="text-sm">Distance Covered</span>
-                        <span className="font-medium">
-                          {formattedStats.weeklyDistance || "1,247"} km
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">Average Rating</span>
-                        <span className="font-medium">
-                          {formattedStats.rating}/5.0
-                        </span>
-                      </div>
-
                     </div>
                   </CardContent>
                 </Card>

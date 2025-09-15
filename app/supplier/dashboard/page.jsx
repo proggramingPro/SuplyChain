@@ -190,7 +190,7 @@ function SupplierDashboardContent() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/geocode?address=${encodeURIComponent(destination.address)}`
+        `http://localhost:5000/api/utils/geocode?address=${encodeURIComponent(destination.address)}`
       )
       
       if (response.ok) {
@@ -283,87 +283,94 @@ function SupplierDashboardContent() {
     }
   }
 
-  // Create shipment function
-  const createShipment = async () => {
-    try {
-      setIsCreating(true)
-      
-      const validDestinations = destinations.filter(dest => 
-        dest.name && dest.address && dest.lat && dest.lng
-      )
-      
-      if (validDestinations.length === 0) {
-        alert("Please add at least one valid destination")
-        return
-      }
+ const createShipment = async () => {
+  try {
+    setIsCreating(true);
+    
+    const validDestinations = destinations.filter(dest => 
+      dest.name && dest.address && dest.lat && dest.lng
+    );
 
-      const deliveryData = {
-        customerName: shipmentData.customerName,
-        customerPhone: shipmentData.customerPhone,
-        supplierName: "TechMart Supply",
-        orderId: `ORD-${Date.now()}`,
-        origin: {
-          name: "TechMart Warehouse, Mumbai",
-          lat: 19.076,
-          lng: 72.8777,
-          address: "TechMart Warehouse, Mumbai"
-        },
-        destination: validDestinations[validDestinations.length - 1],
-        checkpoints: validDestinations.map((dest, index) => ({
-          id: `cp-${Date.now()}-${index}`,
-          name: dest.name,
-          location: {
-            lat: parseFloat(dest.lat),
-            lng: parseFloat(dest.lng),
-            address: dest.address
-          },
-          status: "pending",
-          order: index,
-          estimatedArrival: new Date(Date.now() + (index + 1) * 30 * 60 * 1000)
-        })),
-        currentStatus: "pending",
-        estimatedDelivery: new Date(Date.now() + validDestinations.length * 30 * 60 * 1000),
-        totalDistance: validDestinations.length * 50,
-        remainingTime: validDestinations.length * 30,
-        packageType: shipmentData.packageType,
-        priority: shipmentData.priority,
-        notes: shipmentData.notes,
-        driverId: shipmentData.assignedDriver || "DRIVER001"
-      }
-
-      const response = await fetch("http://localhost:5000/api/deliveries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(deliveryData)
-      })
-
-      if (response.ok) {
-        const newDelivery = await response.json()
-        alert("Shipment created successfully! Driver has been notified.")
-        
-        // Reset form
-        setDestinations([{ name: "", address: "", lat: "", lng: "", isGeocoding: false }])
-        setShipmentData({
-          customerName: "",
-          customerPhone: "",
-          packageType: "",
-          priority: "",
-          notes: "",
-          assignedDriver: ""
-        })
-        
-        // Refresh shipments list
-        fetchShipments()
-      } else {
-        throw new Error("Failed to create shipment")
-      }
-    } catch (error) {
-      console.error("Error creating shipment:", error)
-      alert("Failed to create shipment")
-    } finally {
-      setIsCreating(false)
+    if (validDestinations.length === 0) {
+      alert("Please add at least one valid destination");
+      return;
     }
+
+    const deliveryData = {
+      customerName: shipmentData.customerName,
+      customerPhone: shipmentData.customerPhone,
+      supplierId: shipmentData.supplierId || "SUPPLIER001",
+      consumerId: shipmentData.consumerId || "CONSUMER001",
+      supplierName: shipmentData.supplierName || "TechMart Supply",
+      orderId: `ORD-${Date.now()}`,
+      origin: shipmentData.origin || {
+        name: "TechMart Warehouse, Mumbai",
+        lat: 19.076,
+        lng: 72.8777,
+        address: "TechMart Warehouse, Mumbai"
+      },
+      destination: validDestinations[validDestinations.length - 1],
+      checkpoints: validDestinations.map((dest, index) => ({
+        id: `cp-${Date.now()}-${index}`,
+        name: dest.name,
+        location: {
+          lat: parseFloat(dest.lat),
+          lng: parseFloat(dest.lng),
+          address: dest.address
+        },
+        status: "pending",
+        order: index,
+        estimatedArrival: new Date(Date.now() + (index + 1) * 30 * 60 * 1000)
+      })),
+      currentStatus: "pending",
+      estimatedDelivery: new Date(Date.now() + validDestinations.length * 30 * 60 * 1000),
+      totalDistance: validDestinations.length * 50,
+      remainingTime: validDestinations.length * 30,
+      packageType: shipmentData.packageType,
+      priority: shipmentData.priority,
+      notes: shipmentData.notes,
+      driverId: shipmentData.assignedDriver || "DRIVER001",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const response = await fetch("http://localhost:5000/api/deliveries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(deliveryData)
+    });
+
+    if (response.ok) {
+      const newDelivery = await response.json();
+      alert("Shipment created successfully! Driver has been notified.");
+      
+      setDestinations([{ name: "", address: "", lat: "", lng: "", isGeocoding: false }]);
+      setShipmentData({
+        customerName: "",
+        customerPhone: "",
+        packageType: "",
+        priority: "",
+        notes: "",
+        assignedDriver: "",
+        supplierId: "",
+        consumerId: "",
+        supplierName: "",
+        origin: null
+      });
+
+      fetchShipments();
+    } else {
+      const errorText = await response.text();
+      throw new Error(`Failed to create shipment: ${errorText}`);
+    }
+  } catch (error) {
+    console.error("Error creating shipment:", error);
+    alert("Failed to create shipment");
+  } finally {
+    setIsCreating(false);
   }
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50">

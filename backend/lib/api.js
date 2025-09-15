@@ -155,20 +155,25 @@ class SupplyChainAPI {
     }
   }
 
-  static async getRouteDirections(coordinates) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/route/directions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coordinates })
-      });
-      if (!response.ok) throw new Error('Failed to get route directions');
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting route directions:', error);
-      throw error;
+static async getRouteDirections(coordinates, mode = "driving") {
+  try {
+    const response = await fetch(`${API_BASE_URL}/utils/route/directions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coordinates, mode })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Failed to get route directions: ${errorData.error || response.statusText}`);
     }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting route directions:', error);
+    throw error;
   }
+}
 
   static async optimizeRoute(origin, destination, waypoints = []) {
     try {
@@ -188,7 +193,7 @@ class SupplyChainAPI {
   static async geocodeAddress(address) {
     try {
       const params = new URLSearchParams({ address });
-      const response = await fetch(`${API_BASE_URL}/geocode?${params}`);
+      const response = await fetch(`${API_BASE_URL}/utils/geocode?${params}`);
       if (!response.ok) throw new Error('Failed to geocode address');
       return await response.json();
     } catch (error) {
@@ -320,7 +325,7 @@ class SupplyChainAPI {
   // Emergency and notifications
   static async triggerEmergency(driverId, location, message) {
     try {
-      const response = await fetch(`${API_BASE_URL}/emergency`, {
+      const response = await fetch(`${API_BASE_URL}/utils/emergency`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
