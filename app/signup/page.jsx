@@ -79,157 +79,131 @@ export default function SignupPage() {
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "auto", padding: "20px" }}>
-      <h2>Sign Up</h2>
-      {step === 1 && (
-        <form onSubmit={handleDetailsSubmit}>
-          <div style={{ marginBottom: "15px" }}>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              Name:
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="Enter your full name"
-              style={{
-                width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+      <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+          Sign Up
+        </h2>
 
-          <div style={{ marginBottom: "15px" }}>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              Email:
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-              style={{
-                width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
+        {/* Step 1: User details */}
+        {step === 1 && (
+          <form onSubmit={handleDetailsSubmit} className="space-y-5">
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="Enter your full name"
+                className="w-full rounded-lg border border-gray-300 p-2 
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
 
-          <div style={{ marginBottom: "15px" }}>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              Mobile:
-            </label>
-            <input
-              type="tel"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              required
-              placeholder="Enter 10-digit number"
-              pattern="[0-9]{10}"
-              style={{
-                width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="Enter your email"
+                className="w-full rounded-lg border border-gray-300 p-2 
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
 
-          <div style={{ marginBottom: "15px" }}>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              Password:
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter password"
-              style={{
-                width: "100%",
-                padding: "8px",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                boxSizing: "border-box"
-              }}
-            />
-          </div>
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-1">
+                Mobile
+              </label>
+              <input
+                type="tel"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
+                required
+                placeholder="Enter 10-digit number"
+                pattern="[0-9]{10}"
+                className="w-full rounded-lg border border-gray-300 p-2 
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              width: "100%",
-              padding: "10px",
-              backgroundColor: isLoading ? "#ccc" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              fontSize: "16px"
-            }}
-          >
-            {isLoading ? "Sending OTP..." : "Send OTP"}
-          </button>
-        </form>
-      )}
-      {step === 2 && (
-        <form onSubmit={handleOtpSubmit}>
-          <div style={{ marginBottom: "15px" }}>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              OTP:
-            </label>
-            <InputOTP
-              maxLength={6}
-              value={otp}
-              onChange={(value) => setOtp(value)}
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Enter password"
+                className="w-full rounded-lg border border-gray-300 p-2 
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full py-2.5 rounded-lg text-white font-semibold transition cursor-pointer 
+                ${isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
             >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
+              {isLoading ? "Sending OTP..." : "Send OTP"}
+            </button>
+          </form>
+        )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              width: "100%",
-              padding: "10px",
-              backgroundColor: isLoading ? "#ccc" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              fontSize: "16px"
-            }}
-          >
-            {isLoading ? "Verifying OTP..." : "Verify OTP"}
-          </button>
-        </form>
-      )}
+        {/* Step 2: OTP */}
+        {step === 2 && (
+          <form onSubmit={handleOtpSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Enter OTP
+              </label>
+              <InputOTP
+                maxLength={6}
+                value={otp}
+                onChange={(value) => setOtp(value)}
+                className="flex justify-center gap-2"
+              >
+                <InputOTPGroup>
+                  {[...Array(6)].map((_, i) => (
+                    <InputOTPSlot key={i} index={i} />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
 
-      <div style={{ marginTop: "20px", textAlign: "center" }}>
-        <p style={{ margin: 0 }}>
-          Already have an account?{" "}
-          <Link href="/login" style={{ color: "#007bff", textDecoration: "underline" }}>
-            Login here
-          </Link>
-        </p>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full py-2.5 rounded-lg text-white font-semibold transition 
+                ${isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+            >
+              {isLoading ? "Verifying OTP..." : "Verify OTP"}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-6 text-center text-lg text-gray-600">
+          <p>
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-blue-600 font-semibold hover:underline"
+            >
+              Login here
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

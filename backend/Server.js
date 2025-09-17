@@ -11,10 +11,11 @@ const authRoutes = require('./routes/auth');
 const shipmentRoutes = require("./routes/Shipmentroutes");
 const driverRoutes = require("./routes/driverRoutes");
 const utilityRoutes = require("./routes/utilityRoutes");
+const consumerRoutes = require('./routes/consumerRoutes');
 
 // --- Server Configuration ---
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGODB_URI;
+const MONGO_URI = process.env.MONGO_URI;
 const app = express();
 
 // --- Core Middleware ---
@@ -49,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use("/api/utils", utilityRoutes); // All utility routes are now handled here
 app.use("/api/deliveries", shipmentRoutes);
 app.use("/api/drivers", driverRoutes);
+app.use('/api/consumer', consumerRoutes);
 
 console.log("-> All routes registered.");
 

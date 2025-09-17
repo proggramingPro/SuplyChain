@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,47 +23,78 @@ import {
 } from "lucide-react"
 
 export default function ConsumerDashboard() {
-  const [activePackages, setActivePackages] = useState(3)
-  const [deliveredThisMonth, setDeliveredThisMonth] = useState(12)
+  const [activePackages, setActivePackages] = useState(0)
+  const [deliveredThisMonth, setDeliveredThisMonth] = useState(0)
+  const [packages, setPackages] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const packages = [
-    {
-      id: "TRK001234",
-      name: "Electronics Package",
-      from: "TechCorp Inc.",
-      status: "In Transit",
-      progress: 75,
-      currentLocation: "Distribution Center - Chicago",
-      eta: "Tomorrow, 2:30 PM",
-      driver: "John Smith",
-      driverPhone: "+1 (555) 123-4567",
-      estimatedDelivery: "Dec 15, 2024",
-    },
-    {
-      id: "TRK001235",
-      name: "Home Essentials",
-      from: "Global Retail",
-      status: "Out for Delivery",
-      progress: 90,
-      currentLocation: "Local Delivery Hub",
-      eta: "Today, 4:00 PM",
-      driver: "Maria Garcia",
-      driverPhone: "+1 (555) 987-6543",
-      estimatedDelivery: "Dec 12, 2024",
-    },
-    {
-      id: "TRK001236",
-      name: "Medical Supplies",
-      from: "MedSupply Co.",
-      status: "Delivered",
-      progress: 100,
-      currentLocation: "Delivered to Front Door",
-      eta: "Completed",
-      driver: "David Wilson",
-      driverPhone: "+1 (555) 456-7890",
-      estimatedDelivery: "Dec 10, 2024",
-    },
-  ]
+  useEffect(() => {
+    const fetchDeliveries = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.error('No token found')
+        setLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/consumer/deliveries', {
+          headers: {
+            'authorization': `${token}`
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log("Token from localStorage:", token)
+          console.log("Fetched deliveries data:", data)
+
+          // Map data to UI format
+          const mappedPackages = data.map(delivery => ({
+            id: delivery.orderId,
+            name: `Package ${delivery.orderId}`,
+            from: delivery.supplierName,
+            status: delivery.currentStatus === 'pending' ? 'Pending' :
+                    delivery.currentStatus === 'picked_up' ? 'Picked Up' :
+                    delivery.currentStatus === 'departed' ? 'In Transit' :
+                    delivery.currentStatus === 'delivered' ? 'Delivered' : delivery.currentStatus,
+            progress: delivery.currentStatus === 'delivered' ? 100 :
+                     delivery.currentStatus === 'pending' ? 10 :
+                     delivery.currentStatus === 'picked_up' ? 25 :
+                     delivery.currentStatus === 'departed' ? 75 : 50,
+            currentLocation: delivery.currentLocation || delivery.origin?.name || 'In Transit',
+            eta: delivery.estimatedDelivery ? new Date(delivery.estimatedDelivery).toLocaleDateString() : 'TBD',
+            driver: delivery.driverId || 'Assigned',
+            driverPhone: '',
+            estimatedDelivery: delivery.estimatedDelivery
+          }))
+
+          setPackages(mappedPackages)
+
+          // Calculate stats
+          const now = new Date()
+          const active = mappedPackages.filter(pkg => pkg.status !== 'Delivered').length
+          const deliveredThisMonthCount = mappedPackages.filter(pkg =>
+            pkg.status === 'Delivered' &&
+            pkg.estimatedDelivery &&
+            new Date(pkg.estimatedDelivery).getMonth() === now.getMonth() &&
+            new Date(pkg.estimatedDelivery).getFullYear() === now.getFullYear()
+          ).length
+
+          setActivePackages(active)
+          setDeliveredThisMonth(deliveredThisMonthCount)
+        } else {
+          console.error('Failed to fetch deliveries:', response.status)
+        }
+      } catch (error) {
+        console.error('Error fetching deliveries:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDeliveries()
+  }, [])
 
   const addresses = [
     {

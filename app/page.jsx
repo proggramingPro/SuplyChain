@@ -34,41 +34,51 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Truck className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">SupplyTrack Pro</h1>
+      <header className="bg-white shadow-md">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          {/* Logo */}
+          <Link href={'/'}>
+            <div className="flex items-center gap-3 cursor-pointer">
+              <Truck className="h-10 w-10 text-blue-600 animate-bounce" />
+              <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">
+                SupplyTrack Pro
+              </h1>
             </div>
-            <nav className="hidden md:flex items-center gap-6">
-              <Link href="/supplier" className="text-muted-foreground hover:text-foreground transition-colors">
-                For Suppliers
-              </Link>
-              <Link href="/driver" className="text-muted-foreground hover:text-foreground transition-colors">
-                For Drivers
-              </Link>
-              <Link href="/consumer" className="text-muted-foreground hover:text-foreground transition-colors">
-                For Consumers
-              </Link>
-              <Link href="/admin" className="text-muted-foreground hover:text-foreground transition-colors">
-                Admin
-              </Link>
-            </nav>
-            <div className="flex items-center gap-3">
-              {!loggedIn ? (
-                <>
-                  <Button variant="outline" onClick={handleLogin}>
-                    Sign In
-                  </Button>
-                  <Button onClick={handleGetStarted}>Get Started</Button>
-                </>
-              ) : (
-                <Button variant="outline" onClick={handleLogout}>
-                  Logout
+          </Link>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
+            {!loggedIn ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="border-2 cursor-pointer border-blue-600 text-blue-600 font-semibold rounded-full px-6 py-2 
+                       hover:bg-blue-600 hover:text-white shadow-sm transform hover:scale-105 
+                       transition-all duration-300"
+                  onClick={handleLogin}
+                >
+                  Sign In
                 </Button>
-              )}
-            </div>
+
+                <Button
+                  className="bg-gradient-to-r cursor-pointer from-yellow-300 to-yellow-400 text-gray-800 rounded-full 
+                       px-6 py-2 font-semibold shadow-sm hover:from-yellow-400 hover:to-yellow-500 
+                       transform hover:scale-105 transition-all duration-300"
+                  onClick={handleGetStarted}
+                >
+                  Get Started
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                className="border-gray-300 text-gray-700 font-bold rounded-full px-6 py-2 
+                     hover:bg-gray-900 cursor-pointer transform hover:scale-105 transition-all duration-300"
+                onClick={handleLogout}
+              >
+                Logout
+              </Button>
+            )}
           </div>
         </div>
       </header>

@@ -65,7 +65,7 @@ function DriverDashboardContent() {
           console.log("Formatted drivers:", formattedDrivers);
           setAvailableDrivers(formattedDrivers);
         } else {
-          console.log("No drivers found in response, using fallback");  
+          console.log("No drivers found in response, using fallback");
         }
       } else {
         console.error("Failed to fetch drivers, status:", response.status);
@@ -219,14 +219,11 @@ function DriverDashboardContent() {
         // Show success message with better formatting
         const successMessage =
           newStatus === "delivered"
-            ? `🎉 Delivery Completed Successfully!\n\nOrder: ${
-                currentDelivery.orderId
-              }\nCustomer: ${currentDelivery.customerName}\nStatus: ${
-                data.currentStatus || newStatus
-              }`
-            : `✅ Successfully updated status to ${
-                data.currentStatus || newStatus
-              }`;
+            ? `🎉 Delivery Completed Successfully!\n\nOrder: ${currentDelivery.orderId
+            }\nCustomer: ${currentDelivery.customerName}\nStatus: ${data.currentStatus || newStatus
+            }`
+            : `✅ Successfully updated status to ${data.currentStatus || newStatus
+            }`;
 
         alert(successMessage);
 
@@ -237,8 +234,7 @@ function DriverDashboardContent() {
       } else {
         const errorData = await response.json();
         throw new Error(
-          `HTTP error! status: ${response.status}, message: ${
-            errorData.error || "Unknown error"
+          `HTTP error! status: ${response.status}, message: ${errorData.error || "Unknown error"
           }`
         );
       }
@@ -276,9 +272,8 @@ function DriverDashboardContent() {
 
         // Notify supplier and customer
         const deliveryId = currentDelivery._id || currentDelivery.id;
-        const message = `Parcel picked up for order ${
-          currentDelivery.orderId || deliveryId
-        }.`;
+        const message = `Parcel picked up for order ${currentDelivery.orderId || deliveryId
+          }.`;
         await SupplyChainAPI.sendDeliveryNotification(
           deliveryId,
           "picked_up",
@@ -373,9 +368,8 @@ function DriverDashboardContent() {
     if (!currentDelivery) return;
     try {
       const deliveryId = currentDelivery._id || currentDelivery.id;
-      const message = `Parcel delivered for order ${
-        currentDelivery.orderId || deliveryId
-      }.`;
+      const message = `Parcel delivered for order ${currentDelivery.orderId || deliveryId
+        }.`;
       await SupplyChainAPI.sendDeliveryNotification(
         deliveryId,
         "delivered",
@@ -400,18 +394,18 @@ function DriverDashboardContent() {
     if (!currentDelivery) return null;
 
     return {
-      id: currentDelivery.id ,
-      packageId: currentDelivery.orderId ,
+      id: currentDelivery.id,
+      packageId: currentDelivery.orderId,
       from:
         currentDelivery.origin?.name ||
-        currentDelivery.from 
-        ,
+        currentDelivery.from
+      ,
       to:
         currentDelivery.destination?.name ||
-        currentDelivery.to 
-        ,
-      customerName: currentDelivery.customerName ,
-      customerPhone: currentDelivery.customerPhone ,
+        currentDelivery.to
+      ,
+      customerName: currentDelivery.customerName,
+      customerPhone: currentDelivery.customerPhone,
       estimatedTime: currentDelivery.estimatedDelivery
         ? new Date(currentDelivery.estimatedDelivery).toLocaleTimeString()
         : "2h 30m",
@@ -494,9 +488,8 @@ function DriverDashboardContent() {
               </div>
               <div className="flex items-center gap-1">
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    isTracking ? "bg-green-500" : "bg-red-500"
-                  }`}
+                  className={`w-2 h-2 rounded-full ${isTracking ? "bg-green-500" : "bg-red-500"
+                    }`}
                 ></div>
                 <span className="font-medium text-xs">
                   {isTracking ? "Live" : "Offline"}
@@ -562,9 +555,8 @@ function DriverDashboardContent() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`w-3 h-3 rounded-full animate-pulse ${
-                              isTracking ? "bg-green-500" : "bg-red-500"
-                            }`}
+                            className={`w-3 h-3 rounded-full animate-pulse ${isTracking ? "bg-green-500" : "bg-red-500"
+                              }`}
                           ></div>
                           <span className="text-sm font-medium">
                             {isTracking
@@ -727,13 +719,12 @@ function DriverDashboardContent() {
                             Current Delivery
                           </CardTitle>
                           <Badge
-                            className={`${
-                              formattedDelivery.status === "delivered"
+                            className={`${formattedDelivery.status === "delivered"
                                 ? "bg-green-100 text-green-700"
                                 : formattedDelivery.status === "in_transit"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-yellow-100 text-yellow-700"
-                            }`}
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                              }`}
                           >
                             {formattedDelivery.status
                               .replace("_", " ")
@@ -855,18 +846,17 @@ function DriverDashboardContent() {
                                 className="flex items-center gap-3"
                               >
                                 <div
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                                    checkpoint.status === "departed" ||
-                                    checkpoint.status === "completed"
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${checkpoint.status === "departed" ||
+                                      checkpoint.status === "completed"
                                       ? "bg-green-100 text-green-700"
                                       : checkpoint.status === "arrived" ||
                                         checkpoint.status === "current"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : "bg-gray-100 text-gray-500"
-                                  }`}
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-gray-100 text-gray-500"
+                                    }`}
                                 >
                                   {checkpoint.status === "departed" ||
-                                  checkpoint.status === "completed" ? (
+                                    checkpoint.status === "completed" ? (
                                     <CheckCircle className="h-4 w-4" />
                                   ) : (
                                     index + 1
@@ -878,10 +868,10 @@ function DriverDashboardContent() {
                                   </p>
                                   <p className="text-xs text-gray-600">
                                     {checkpoint.location?.address ||
-                                    checkpoint.estimatedArrival
+                                      checkpoint.estimatedArrival
                                       ? new Date(
-                                          checkpoint.estimatedArrival
-                                        ).toLocaleTimeString()
+                                        checkpoint.estimatedArrival
+                                      ).toLocaleTimeString()
                                       : checkpoint.time || "Pending"}
                                   </p>
                                   {checkpoint.actualArrival && (
@@ -895,18 +885,18 @@ function DriverDashboardContent() {
                                 </div>
                                 {(checkpoint.status === "pending" ||
                                   checkpoint.status === "current") && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() =>
-                                      handleCheckpointReached(
-                                        checkpoint.checkpointId || checkpoint.id
-                                      )
-                                    }
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                  >
-                                    Reached
-                                  </Button>
-                                )}
+                                    <Button
+                                      size="sm"
+                                      onClick={() =>
+                                        handleCheckpointReached(
+                                          checkpoint.checkpointId || checkpoint.id
+                                        )
+                                      }
+                                      className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      Reached
+                                    </Button>
+                                  )}
                               </div>
                             )
                           )}
@@ -984,55 +974,51 @@ function DriverDashboardContent() {
                   {alerts.map((alert, index) => (
                     <Card
                       key={index}
-                      className={`${
-                        alert.severity === "high"
+                      className={`${alert.severity === "high"
                           ? "border-red-200 bg-red-50"
                           : alert.severity === "medium"
-                          ? "border-orange-200 bg-orange-50"
-                          : "border-yellow-200 bg-yellow-50"
-                      }`}
+                            ? "border-orange-200 bg-orange-50"
+                            : "border-yellow-200 bg-yellow-50"
+                        }`}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <AlertTriangle
-                            className={`h-5 w-5 mt-0.5 ${
-                              alert.severity === "high"
+                            className={`h-5 w-5 mt-0.5 ${alert.severity === "high"
                                 ? "text-red-600"
                                 : alert.severity === "medium"
-                                ? "text-orange-600"
-                                : "text-yellow-600"
-                            }`}
+                                  ? "text-orange-600"
+                                  : "text-yellow-600"
+                              }`}
                           />
                           <div className="flex-1">
                             <p
-                              className={`font-medium text-sm ${
-                                alert.severity === "high"
+                              className={`font-medium text-sm ${alert.severity === "high"
                                   ? "text-red-800"
                                   : alert.severity === "medium"
-                                  ? "text-orange-800"
-                                  : "text-yellow-800"
-                              }`}
+                                    ? "text-orange-800"
+                                    : "text-yellow-800"
+                                }`}
                             >
                               {alert.type === "weather"
                                 ? "Weather Alert"
                                 : alert.type === "traffic"
-                                ? "Traffic Alert"
-                                : alert.type === "fuel"
-                                ? "Fuel Alert"
-                                : alert.type === "checkpoint"
-                                ? "Checkpoint Alert"
-                                : alert.type === "emergency"
-                                ? "Emergency Alert"
-                                : "System Alert"}
+                                  ? "Traffic Alert"
+                                  : alert.type === "fuel"
+                                    ? "Fuel Alert"
+                                    : alert.type === "checkpoint"
+                                      ? "Checkpoint Alert"
+                                      : alert.type === "emergency"
+                                        ? "Emergency Alert"
+                                        : "System Alert"}
                             </p>
                             <p
-                              className={`text-sm ${
-                                alert.severity === "high"
+                              className={`text-sm ${alert.severity === "high"
                                   ? "text-red-700"
                                   : alert.severity === "medium"
-                                  ? "text-orange-700"
-                                  : "text-yellow-700"
-                              }`}
+                                    ? "text-orange-700"
+                                    : "text-yellow-700"
+                                }`}
                             >
                               {alert.message}
                             </p>
