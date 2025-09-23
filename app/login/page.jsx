@@ -28,7 +28,17 @@ export default function LoginPage() {
 
       if (res.ok) {
         localStorage.setItem("token", data.token);
-        router.push("/");
+
+        // Redirect based on category
+        if (data.category === "consumer") {
+          router.push("/consumer/dashboard");
+        } else if (data.category === "supplier") {
+          router.push("/supplier/dashboard");
+        } else if (data.category === "driver") {
+          router.push("/drivers/dashboard");
+        } else {
+          router.push("/");
+        }
       } else {
         alert(data.message || "Login failed");
       }
@@ -43,9 +53,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">Login</h2>
+        <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">
+          Login
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Email */}
           <div>
             <label className="block text-gray-700 font-semibold mb-2">Email</label>
             <input
@@ -58,7 +69,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-gray-700 font-semibold mb-2">Password</label>
             <input
@@ -71,23 +81,25 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 cursor-pointer rounded-lg text-white font-semibold text-lg transition transform ${isLoading
+            className={`w-full py-3 cursor-pointer rounded-lg text-white font-semibold text-lg transition transform ${
+              isLoading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-md"
-              }`}
+            }`}
           >
             {isLoading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        {/* Signup Link */}
         <p className="text-center text-gray-600 mt-6">
-          Don't have an account?{" "}
-          <Link href="/signup" className="text-blue-600 font-bold hover:underline text-lg">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/signup"
+            className="text-blue-600 font-bold hover:underline text-lg"
+          >
             Sign up here
           </Link>
         </p>

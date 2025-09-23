@@ -70,7 +70,16 @@ router.post('/login', async (req, res) => {
         }
         // Generate token
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
-        res.json({ token });
+        res.json({
+            token,
+            category: user.category,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                category: user.category
+            }
+        });
         } catch (error) {
             console.error(error);
             res.status(500).json({ message: 'Server error' });
@@ -108,14 +117,14 @@ router.post('/verify-otp', async (req, res) => {
         });
 
         delete otpStore[email];
-        res.json({
-            message: 'Signup successful',
+         res.json({
             token,
+            category: newUser.category,
             user: {
                 id: newUser._id,
-                name: newUser.name,
+                name:newUser.name,
                 email: newUser.email,
-                mobile: newUser.mobile
+                category: newUser.category
             }
         });
     } catch (error) {

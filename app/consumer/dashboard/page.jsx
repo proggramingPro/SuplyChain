@@ -7,13 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DashboardHeader } from "@/components/DashboardHeader"
 import {
   Package,
   MapPin,
   Clock,
-  Bell,
-  Settings,
   Search,
   Plus,
   Truck,
@@ -140,33 +138,11 @@ export default function ConsumerDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Packages</h1>
-            <p className="text-gray-600">Track and manage your deliveries</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm">
-              <Bell className="h-4 w-4 mr-2" />
-              Notifications
-              {notifications.filter((n) => !n.read).length > 0 && (
-                <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
-                  {notifications.filter((n) => !n.read).length}
-                </Badge>
-              )}
-            </Button>
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
-            <Avatar className="h-8 w-8">
-              <AvatarImage src="/placeholder.svg?height=32&width=32" />
-              <AvatarFallback>JD</AvatarFallback>
-            </Avatar>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader
+        title="My Packages"
+        description="Track and manage your deliveries"
+        alertsCount={notifications.filter((n) => !n.read).length}
+      />
 
       <div className="p-6">
         {/* Quick Stats */}

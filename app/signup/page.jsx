@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
+  const [category, setCategory] = useState("consumer");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function SignupPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    const signupData = { name, email, mobile, password };
+    const signupData = { name, email, mobile, password, category };
 
     try {
       const res = await fetch("http://localhost:5000/api/auth/signup", {
@@ -66,7 +67,17 @@ export default function SignupPage() {
 
       if (res.ok) {
         localStorage.setItem("token", data.token);
-        router.push("/");
+
+        // Redirect based on category
+        if (data.user?.category === "consumer") {
+          router.push("/consumer/dashboard");
+        } else if (data.user?.category === "supplier") {
+          router.push("/supplier/dashboard");
+        } else if (data.user?.category === "driver") {
+          router.push("/drivers/dashboard");
+        } else {
+          router.push("/");
+        }
       } else {
         alert(data.message || "OTP verification failed");
       }
@@ -149,6 +160,22 @@ export default function SignupPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-1">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-300 p-2 
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="consumer">Consumer</option>
+                <option value="supplier">Supplier</option>
+                <option value="driver">Driver</option>
+              </select>
+            </div>
 
             <button
               type="submit"

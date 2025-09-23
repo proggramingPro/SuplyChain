@@ -18,6 +18,12 @@ const userSchema = new mongoose.Schema({
     password: {
     type: String,
     required: true
+    },
+    category: {
+    type: String,
+    required: true,
+    enum: ['consumer', 'supplier', 'driver'],
+    default: 'consumer'
     }
 });
 

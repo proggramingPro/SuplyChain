@@ -3,23 +3,42 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Truck, MapPin, Shield, BarChart3, Users, Clock, CheckCircle } from "lucide-react";
+import {
+  Truck,
+  MapPin,
+  Shield,
+  BarChart3,
+  Users,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
+  const [category, setCategory] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const userCategory = localStorage.getItem("category");
     setLoggedIn(!!token);
+    setCategory(userCategory);
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("category");
     setLoggedIn(false);
+    setCategory(null);
     router.push("/");
   };
 
@@ -31,13 +50,25 @@ export default function HomePage() {
     router.push("/login");
   };
 
+  const handleDashboard = () => {
+    if (category === "consumer") {
+      router.push("/consumer/dashboard");
+    } else if (category === "supplier") {
+      router.push("/supplier/dashboard");
+    } else if (category === "driver") {
+      router.push("/drivers/dashboard");
+    } else {
+      router.push("/");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-white shadow-md">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           {/* Logo */}
-          <Link href={'/'}>
+          <Link href={"/"}>
             <div className="flex items-center gap-3 cursor-pointer">
               <Truck className="h-10 w-10 text-blue-600 animate-bounce" />
               <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">
@@ -70,14 +101,22 @@ export default function HomePage() {
                 </Button>
               </>
             ) : (
-              <Button
-                variant="outline"
-                className="border-gray-300 text-gray-700 font-bold rounded-full px-6 py-2 
+              <>
+                <Button
+                  className="bg-blue-600 text-white rounded-full px-6 py-2 font-semibold shadow-sm hover:bg-blue-700 transform hover:scale-105 transition-all duration-300"
+                  onClick={handleDashboard}
+                >
+                  Go to Dashboard
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 font-bold rounded-full px-6 py-2 
                      hover:bg-gray-900 cursor-pointer transform hover:scale-105 transition-all duration-300"
-                onClick={handleLogout}
-              >
-                Logout
-              </Button>
+                  onClick={handleLogout}
+                >
+                  Logout
+                </Button>
+              </>
             )}
           </div>
         </div>

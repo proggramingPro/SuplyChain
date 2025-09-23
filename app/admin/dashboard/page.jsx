@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DashboardHeader } from "@/components/DashboardHeader"
 import {
   Users,
   Package,
@@ -15,11 +15,9 @@ import {
   TrendingUp,
   TrendingDown,
   Activity,
-  Settings,
   Download,
   Filter,
   Search,
-  Bell,
 } from "lucide-react"
 
 export default function AdminDashboard() {
@@ -107,31 +105,11 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600">System overview and management</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm">
-              <Bell className="h-4 w-4 mr-2" />
-              Alerts
-              <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
-                3
-              </Badge>
-            </Button>
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
-            <Avatar className="h-8 w-8">
-              <AvatarImage src="/placeholder.svg?height=32&width=32" />
-              <AvatarFallback>AD</AvatarFallback>
-            </Avatar>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader
+        title="Admin Dashboard"
+        description="System overview and management"
+        alertsCount={3}
+      />
 
       <div className="p-6">
         {/* Key Metrics */}
