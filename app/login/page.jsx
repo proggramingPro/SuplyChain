@@ -17,7 +17,7 @@ export default function LoginPage() {
     const loginData = { email, password };
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch("https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginData),
