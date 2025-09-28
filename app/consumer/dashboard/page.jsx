@@ -36,7 +36,7 @@ export default function ConsumerDashboard() {
       }
 
       try {
-        const response = await fetch('https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/consumer/deliveries', {
+        const response = await fetch('https://suply-chain-l1jg.vercel.app//api/consumer/deliveries', {
           headers: {
             'authorization': `${token}`
           }
