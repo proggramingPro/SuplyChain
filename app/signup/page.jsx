@@ -23,7 +23,7 @@ export default function SignupPage() {
     const signupData = { name, email, mobile, password, category };
 
     try {
-      const res = await fetch("https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/auth/signup", {
+      const res = await fetch("https://suply-chain-l1jg.vercel.app//api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(signupData),
