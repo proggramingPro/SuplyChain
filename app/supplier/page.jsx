@@ -46,7 +46,7 @@ export default function SupplierPage() {
         remainingTime: destinations.length * 30
       };
 
-      const response = await fetch("http://localhost:5000/api/deliveries", {
+      const response = await fetch("https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/deliveries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(deliveryData)
