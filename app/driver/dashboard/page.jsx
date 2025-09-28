@@ -48,7 +48,7 @@ function DriverDashboardContent() {
   const fetchAvailableDrivers = async () => {
     try {
       console.log("Fetching drivers from API...");
-      const response = await fetch("http://localhost:5000/api/drivers");
+      const response = await fetch("https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/drivers");
       console.log("Response status:", response.status);
 
       if (response.ok) {
@@ -168,7 +168,7 @@ function DriverDashboardContent() {
 
       try {
         const response = await fetch(
-          `http://localhost:5000/api/deliveries/${currentDelivery._id}/remaining-time?currentLat=${currentLocation.lat}&currentLng=${currentLocation.lng}`
+          `https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/deliveries/${currentDelivery._id}/remaining-time?currentLat=${currentLocation.lat}&currentLng=${currentLocation.lng}`
         );
         const data = await response.json();
 
@@ -202,7 +202,7 @@ function DriverDashboardContent() {
     try {
       console.log(`Updating delivery ${deliveryId} status to: ${newStatus}`);
       const response = await fetch(
-        `http://localhost:5000/api/deliveries/${deliveryId}/status`,
+        `https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/deliveries/${deliveryId}/status`,
         {
           method: "POST",
           headers: {
@@ -336,7 +336,7 @@ function DriverDashboardContent() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/utils/navigation?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`
+        `https://vercel.com/ranjit084s-projects/suply-chain-l1jg/2R1ovtfpkiFxfnsKNW8kCC5WQKou/api/utils/navigation?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`
       );
 
       if (!response.ok) throw new Error("Failed to fetch navigation data");
