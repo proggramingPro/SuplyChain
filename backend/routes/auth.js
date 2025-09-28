@@ -74,7 +74,6 @@ router.post('/login', async (req, res) => {
             token,
             category: user.category,
             user: {
-                id: user._id,
                 name: user.name,
                 email: user.email,
                 category: user.category
