@@ -64,7 +64,7 @@ function SupplierDashboardContent() {
   useEffect(() => {
     if (!isClient) return
 
-    socketRef.current = io('https://suply-chain-l1jg.vercel.app/')
+    socketRef.current = io('https://suplychain.onrender.com')
     
     socketRef.current.on('connect', () => {
       console.log('Supplier dashboard connected to WebSocket')
@@ -142,7 +142,7 @@ function SupplierDashboardContent() {
     try {
       setIsLoadingDrivers(true)
       console.log('Supplier dashboard: Fetching drivers...')
-      const response = await fetch('https://suply-chain-l1jg.vercel.app//api/drivers')
+      const response = await fetch('https://suplychain.onrender.com/api/drivers')
       console.log('Supplier dashboard: Response status:', response.status)
       
       if (response.ok) {
@@ -165,7 +165,7 @@ function SupplierDashboardContent() {
   const fetchShipments = async () => {
     try {
       setIsLoadingShipments(true)
-      const response = await fetch('https://suply-chain-l1jg.vercel.app//api/deliveries')
+      const response = await fetch('https://suplychain.onrender.com/api/deliveries')
       if (response.ok) {
         const shipmentsData = await response.json()
         setShipments(shipmentsData)
@@ -190,7 +190,7 @@ function SupplierDashboardContent() {
 
     try {
       const response = await fetch(
-        `https://suply-chain-l1jg.vercel.app//api/utils/geocode?address=${encodeURIComponent(destination.address)}`
+        `https://suplychain.onrender.com/api/utils/geocode?address=${encodeURIComponent(destination.address)}`
       )
       
       if (response.ok) {
@@ -238,7 +238,7 @@ function SupplierDashboardContent() {
     }
 
     try {
-      const response = await fetch(`https://suply-chain-l1jg.vercel.app//api/drivers/${driverId}`, {
+      const response = await fetch(`https://suplychain.onrender.com/api/drivers/${driverId}`, {
         method: "DELETE"
       });
 
@@ -257,7 +257,7 @@ function SupplierDashboardContent() {
 
   const addDriver = async () => {
     try {
-      const response = await fetch("https://suply-chain-l1jg.vercel.app//api/drivers", {
+      const response = await fetch("https://suplychain.onrender.com/api/drivers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -334,7 +334,7 @@ function SupplierDashboardContent() {
       updatedAt: new Date()
     };
 
-    const response = await fetch("https://suply-chain-l1jg.vercel.app//api/deliveries", {
+    const response = await fetch("https://suplychain.onrender.com/api/deliveries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(deliveryData)
