@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Package,
   Truck,
@@ -39,6 +40,7 @@ function SupplierDashboardContent() {
   const [newDriver, setNewDriver] = useState({ name: "", phone: "", email: "", licenseNumber: "", loginId: "", password: "" })
   const [destinations, setDestinations] = useState([{ name: "", address: "", lat: "", lng: "", isGeocoding: false }])
   const [shipmentData, setShipmentData] = useState({
+    customerId: "",
     customerName: "",
     customerPhone: "",
     packageType: "",
@@ -51,8 +53,10 @@ function SupplierDashboardContent() {
   const [isClient, setIsClient] = useState(false)
   const [drivers, setDrivers] = useState([])
   const [shipments, setShipments] = useState([])
+  const [consumers, setConsumers] = useState([])
   const [isLoadingDrivers, setIsLoadingDrivers] = useState(true)
   const [isLoadingShipments, setIsLoadingShipments] = useState(true)
+  const [isLoadingConsumers, setIsLoadingConsumers] = useState(true)
   const socketRef = useRef(null)
 
   // Set client-side flag
@@ -64,7 +68,7 @@ function SupplierDashboardContent() {
   useEffect(() => {
     if (!isClient) return
 
-    socketRef.current = io('https://suplychain.onrender.com')
+    socketRef.current = io(process.env.NEXT_PUBLIC_WS_URL)
     
     socketRef.current.on('connect', () => {
       console.log('Supplier dashboard connected to WebSocket')
@@ -112,8 +116,9 @@ function SupplierDashboardContent() {
       }])
       setNotifications(prev => prev + 1)
       
-      // Refresh shipments to show updated status
+      // Refresh shipments and stats
       fetchShipments()
+      fetchSupplierStats()
     })
 
     return () => {
@@ -128,6 +133,8 @@ function SupplierDashboardContent() {
     if (isClient) {
       fetchDrivers()
       fetchShipments()
+      fetchConsumers()
+      fetchSupplierStats()
     }
   }, [isClient])
 
@@ -142,7 +149,7 @@ function SupplierDashboardContent() {
     try {
       setIsLoadingDrivers(true)
       console.log('Supplier dashboard: Fetching drivers...')
-      const response = await fetch('https://suplychain.onrender.com/api/drivers')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers`)
       console.log('Supplier dashboard: Response status:', response.status)
       
       if (response.ok) {
@@ -165,7 +172,7 @@ function SupplierDashboardContent() {
   const fetchShipments = async () => {
     try {
       setIsLoadingShipments(true)
-      const response = await fetch('https://suplychain.onrender.com/api/deliveries')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries`)
       if (response.ok) {
         const shipmentsData = await response.json()
         setShipments(shipmentsData)
@@ -176,6 +183,51 @@ function SupplierDashboardContent() {
       console.error('Error fetching shipments:', error)
     } finally {
       setIsLoadingShipments(false)
+    }
+  }
+
+  // Fetch consumers from database
+  const fetchConsumers = async () => {
+    try {
+      setIsLoadingConsumers(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/consumer/consumers`)
+      if (response.ok) {
+        const consumersData = await response.json()
+        setConsumers(consumersData)
+      } else {
+        console.error('Failed to fetch consumers')
+      }
+    } catch (error) {
+      console.error('Error fetching consumers:', error)
+    } finally {
+      setIsLoadingConsumers(false)
+    }
+  }
+
+  // ============================================================================
+  // SUPPLIER DASHBOARD STATISTICS - REAL-TIME DATABASE AGGREGATION
+  // ============================================================================
+  // This function fetches live supplier statistics using MongoDB aggregation
+  // pipeline to calculate:
+  // - Active Shipments: Count of all non-delivered shipments
+  // - Completed Today: Count of deliveries marked as delivered today
+  // - Delayed Shipments: Count of shipments past their estimated delivery time
+  // Uses $facet aggregation for efficient single-query multiple calculations
+  // ============================================================================
+  const fetchSupplierStats = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries/stats/supplier`)
+      if (response.ok) {
+        const stats = await response.json()
+        // Update KPI cards with real-time database values
+        setActiveShipments(stats.activeShipments)
+        setCompletedToday(stats.completedToday)
+        setDelayedShipments(stats.delayedShipments)
+      } else {
+        console.error('Failed to fetch supplier stats')
+      }
+    } catch (error) {
+      console.error('Error fetching supplier stats:', error)
     }
   }
 
@@ -190,7 +242,7 @@ function SupplierDashboardContent() {
 
     try {
       const response = await fetch(
-        `https://suplychain.onrender.com/api/utils/geocode?address=${encodeURIComponent(destination.address)}`
+        `${process.env.NEXT_PUBLIC_API_URL}/utils/geocode?address=${encodeURIComponent(destination.address)}`
       )
       
       if (response.ok) {
@@ -238,7 +290,7 @@ function SupplierDashboardContent() {
     }
 
     try {
-      const response = await fetch(`https://suplychain.onrender.com/api/drivers/${driverId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers/${driverId}`, {
         method: "DELETE"
       });
 
@@ -257,7 +309,7 @@ function SupplierDashboardContent() {
 
   const addDriver = async () => {
     try {
-      const response = await fetch("https://suplychain.onrender.com/api/drivers", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -334,7 +386,7 @@ function SupplierDashboardContent() {
       updatedAt: new Date()
     };
 
-    const response = await fetch("https://suplychain.onrender.com/api/deliveries", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(deliveryData)
@@ -346,6 +398,7 @@ function SupplierDashboardContent() {
       
       setDestinations([{ name: "", address: "", lat: "", lng: "", isGeocoding: false }]);
       setShipmentData({
+        customerId: "",
         customerName: "",
         customerPhone: "",
         packageType: "",
@@ -388,18 +441,122 @@ function SupplierDashboardContent() {
                 View All Drivers
               </a>
             </Button>
-            <Button variant="outline" size="sm" className="relative">
-              <Bell className="h-4 w-4 mr-2" />
-              Notifications
-              {notifications > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
-                >
-                  {notifications}
-                </Badge>
-              )}
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="relative">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Notifications
+                  {notifications > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
+                    >
+                      {notifications}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-96 p-0" align="end">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Notifications</h3>
+                    {alerts.length > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          setAlerts([])
+                          setNotifications(0)
+                        }}
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {alerts.length > 0 ? (
+                    <div className="space-y-2 p-2">
+                      {alerts.map((alert) => (
+                        <div
+                          key={alert.id}
+                          className={`p-3 rounded-lg border ${
+                            alert.severity === "high"
+                              ? "border-red-200 bg-red-50"
+                              : alert.severity === "medium"
+                              ? "border-orange-200 bg-orange-50"
+                              : "border-yellow-200 bg-yellow-50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle
+                              className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                                alert.severity === "high"
+                                  ? "text-red-600"
+                                  : alert.severity === "medium"
+                                  ? "text-orange-600"
+                                  : "text-yellow-600"
+                              }`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`font-medium text-sm ${
+                                  alert.severity === "high"
+                                    ? "text-red-800"
+                                    : alert.severity === "medium"
+                                    ? "text-orange-800"
+                                    : "text-yellow-800"
+                                }`}
+                              >
+                                {alert.type === "emergency"
+                                  ? "Emergency Alert"
+                                  : alert.type === "picked_up"
+                                  ? "Package Picked Up"
+                                  : alert.type === "delivered"
+                                  ? "Package Delivered"
+                                  : alert.type === "status_update"
+                                  ? "Status Update"
+                                  : "Delivery Update"}
+                              </p>
+                              <p
+                                className={`text-sm mt-1 ${
+                                  alert.severity === "high"
+                                    ? "text-red-700"
+                                    : alert.severity === "medium"
+                                    ? "text-orange-700"
+                                    : "text-yellow-700"
+                                }`}
+                              >
+                                {alert.message}
+                              </p>
+                              {alert.timestamp && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {alert.timestamp.toLocaleTimeString()}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => clearAlert(alert.id)}
+                              className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">No notifications</p>
+                      <p className="text-xs text-gray-400">All alerts will appear here</p>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" size="sm">
               <Settings className="h-4 w-4 mr-2" />
               Settings
@@ -460,80 +617,7 @@ function SupplierDashboardContent() {
           </Card>
         </div>
 
-        {/* Alerts Section */}
-        {alerts.length > 0 && (
-          <div className="mb-6 space-y-2">
-            {alerts.map((alert) => (
-              <Card
-                key={alert.id}
-                className={`${
-                  alert.severity === "high"
-                    ? "border-red-200 bg-red-50"
-                    : alert.severity === "medium"
-                    ? "border-orange-200 bg-orange-50"
-                    : "border-yellow-200 bg-yellow-50"
-                }`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle
-                      className={`h-5 w-5 mt-0.5 ${
-                        alert.severity === "high"
-                          ? "text-red-600"
-                          : alert.severity === "medium"
-                          ? "text-orange-600"
-                          : "text-yellow-600"
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <p
-                        className={`font-medium text-sm ${
-                          alert.severity === "high"
-                            ? "text-red-800"
-                            : alert.severity === "medium"
-                            ? "text-orange-800"
-                            : "text-yellow-800"
-                        }`}
-                      >
-                        {alert.type === "emergency"
-                          ? "Emergency Alert"
-                          : alert.type === "picked_up"
-                          ? "Package Picked Up"
-                          : alert.type === "delivered"
-                          ? "Package Delivered"
-                          : "Delivery Update"}
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          alert.severity === "high"
-                            ? "text-red-700"
-                            : alert.severity === "medium"
-                            ? "text-orange-700"
-                            : "text-yellow-700"
-                        }`}
-                      >
-                        {alert.message}
-                      </p>
-                      {alert.timestamp && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {alert.timestamp.toLocaleTimeString()}
-                        </p>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => clearAlert(alert.id)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      ×
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="shipments" className="space-y-6">
@@ -915,21 +999,50 @@ function SupplierDashboardContent() {
                   {/* Customer Information */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="customer">Customer Name</Label>
-                      <Input 
-                        id="customer" 
-                        value={shipmentData.customerName}
-                        onChange={(e) => setShipmentData({...shipmentData, customerName: e.target.value})}
-                        placeholder="Enter customer name" 
-                      />
+                      <Label htmlFor="customer">Select Customer</Label>
+                      <Select 
+                        value={shipmentData.customerId} 
+                        onValueChange={(value) => {
+                          const selectedConsumer = consumers.find(c => c._id === value)
+                          if (selectedConsumer) {
+                            setShipmentData({
+                              ...shipmentData, 
+                              customerId: value,
+                              customerName: selectedConsumer.name,
+                              customerPhone: selectedConsumer.mobile
+                            })
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a registered customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {isLoadingConsumers ? (
+                            <SelectItem value="loading" disabled>
+                              Loading customers...
+                            </SelectItem>
+                          ) : consumers.length > 0 ? (
+                            consumers.map((consumer) => (
+                              <SelectItem key={consumer._id} value={consumer._id}>
+                                {consumer.name} - {consumer.mobile}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no-consumers" disabled>
+                              No registered customers found
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="phone">Customer Phone</Label>
                       <Input 
                         id="phone" 
                         value={shipmentData.customerPhone}
-                        onChange={(e) => setShipmentData({...shipmentData, customerPhone: e.target.value})}
-                        placeholder="Enter phone number" 
+                        disabled
+                        placeholder="Auto-filled when customer is selected" 
                       />
                     </div>
                     </div>

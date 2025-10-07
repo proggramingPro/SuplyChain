@@ -49,7 +49,7 @@ function DriverDashboardContent() {
   const fetchAvailableDrivers = async () => {
     try {
       console.log('Fetching drivers from API...');
-      const response = await fetch('https://suplychain.onrender.com/api/drivers');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers`);
       console.log('Response status:', response.status);
       
       if (response.ok) {
@@ -190,7 +190,7 @@ function DriverDashboardContent() {
 
       try {
         const response = await fetch(
-          `https://suplychain.onrender.com/api/deliveries/${currentDelivery._id}/remaining-time?currentLat=${currentLocation.lat}&currentLng=${currentLocation.lng}`
+          `${process.env.NEXT_PUBLIC_API_URL}/deliveries/${currentDelivery._id}/remaining-time?currentLat=${currentLocation.lat}&currentLng=${currentLocation.lng}`
         );
         const data = await response.json();
         
@@ -224,7 +224,7 @@ function DriverDashboardContent() {
     try {
       console.log(`Updating delivery ${deliveryId} status to: ${newStatus}`);
       const response = await fetch(
-        `https://suplychain.onrender.com/api/deliveries/${deliveryId}/status`,
+        `${process.env.NEXT_PUBLIC_API_URL}/deliveries/${deliveryId}/status`,
         {
           method: 'POST',
           headers: {

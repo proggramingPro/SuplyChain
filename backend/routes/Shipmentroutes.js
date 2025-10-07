@@ -3,6 +3,9 @@ const express = require('express');
 const router = express.Router();
 const Delivery = require('../models/Delivery');
 const Driver = require('../models/Driver');
+const User = require('../models/users');
+const { sendEmail } = require('../utils/mailer');
+const { sendAlertEmail, sendCheckpointEmail } = require('../utils/emailService');
 
 // Get all deliveries/shipments
 router.get('/', async (req, res) => {
@@ -159,6 +162,35 @@ router.post('/:deliveryId/status', async (req, res) => {
     
     await delivery.save();
     
+    // Send email alert to consumer
+    try {
+      console.log(`Looking for consumer: name="${delivery.customerName}", phone="${delivery.customerPhone}"`);
+      
+      const consumer = await User.findOne({
+        $and: [
+          { name: delivery.customerName },
+          { mobile: delivery.customerPhone },
+          { category: 'consumer' }
+        ]
+      });
+      
+      if (consumer) {
+        console.log(`Found consumer: ${consumer.email}`);
+        await sendAlertEmail(
+          consumer.email,
+          consumer.name,
+          `Package ${status}`,
+          `Your package ${deliveryId} status has been updated to ${status}`,
+          deliveryId
+        );
+        console.log(`Email sent to ${consumer.email}`);
+      } else {
+        console.log(`No consumer found with name="${delivery.customerName}" and phone="${delivery.customerPhone}"`);
+      }
+    } catch (emailError) {
+      console.error("Failed to send alert email:", emailError);
+    }
+
     // Notify supplier and other stakeholders via WebSocket
     if (req.io) {
       try {
@@ -332,6 +364,39 @@ router.put('/:deliveryId/checkpoints/:checkpointId', async (req, res) => {
 
     delivery.updatedAt = new Date();
     await delivery.save();
+
+    // Send checkpoint arrival email to consumer
+    if (status === "arrived" || status === "approaching") {
+      try {
+        console.log(`Looking for consumer for checkpoint: name="${delivery.customerName}", phone="${delivery.customerPhone}"`);
+        
+        const consumer = await User.findOne({
+          $and: [
+            { name: delivery.customerName },
+            { mobile: delivery.customerPhone },
+            { category: 'consumer' }
+          ]
+        });
+        
+        if (consumer) {
+          console.log(`Found consumer for checkpoint: ${consumer.email}`);
+          const driver = await Driver.findOne({ driverId: delivery.driverId });
+          await sendCheckpointEmail(
+            consumer.email,
+            consumer.name,
+            checkpoint.name,
+            driver?.name || delivery.driverId,
+            checkpoint.estimatedArrival,
+            deliveryId
+          );
+          console.log(`Checkpoint email sent to ${consumer.email}`);
+        } else {
+          console.log(`No consumer found for checkpoint with name="${delivery.customerName}" and phone="${delivery.customerPhone}"`);
+        }
+      } catch (emailError) {
+        console.error("Failed to send checkpoint email:", emailError);
+      }
+    }
 
     // Broadcast checkpoint status change
     if (req.io) {
@@ -588,6 +653,74 @@ router.get('/search/:query', async (req, res) => {
   } catch (error) {
     console.error("Search shipments error:", error);
     res.status(500).json({ error: "Failed to search shipments" });
+  }
+});
+
+// ============================================================================
+// SUPPLIER DASHBOARD STATISTICS - MONGODB AGGREGATION PIPELINE
+// ============================================================================
+// This endpoint uses MongoDB's $facet aggregation operator to perform
+// multiple aggregation pipelines within a single stage, efficiently
+// calculating all supplier KPIs in one database query:
+//
+// 1. ACTIVE SHIPMENTS: Uses $match to filter non-delivered shipments
+//    and $count to get total count
+// 2. COMPLETED TODAY: Uses $match with date range filter for today's
+//    delivered shipments and $count for total
+// 3. DELAYED SHIPMENTS: Uses $match to find non-delivered shipments
+//    past their estimatedDelivery time and $count for total
+//
+// Benefits: Single query, reduced database load, atomic operation
+// ============================================================================
+router.get('/stats/supplier', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // MongoDB Aggregation Pipeline using $facet for multiple calculations
+    const stats = await Delivery.aggregate([
+      {
+        $facet: {
+          // Count all shipments that are NOT delivered (active shipments)
+          activeShipments: [
+            { $match: { currentStatus: { $nin: ['delivered', 'Delivered'] } } },
+            { $count: 'count' }
+          ],
+          // Count shipments delivered today
+          completedToday: [
+            {
+              $match: {
+                currentStatus: { $in: ['delivered', 'Delivered'] },
+                updatedAt: { $gte: today }
+              }
+            },
+            { $count: 'count' }
+          ],
+          // Count non-delivered shipments past their estimated delivery time
+          delayedShipments: [
+            {
+              $match: {
+                currentStatus: { $nin: ['delivered', 'Delivered'] },
+                estimatedDelivery: { $lt: new Date() }
+              }
+            },
+            { $count: 'count' }
+          ]
+        }
+      }
+    ]);
+
+    // Extract counts from aggregation result with fallback to 0
+    const result = {
+      activeShipments: stats[0].activeShipments[0]?.count || 0,
+      completedToday: stats[0].completedToday[0]?.count || 0,
+      delayedShipments: stats[0].delayedShipments[0]?.count || 0
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching supplier stats:', error);
+    res.status(500).json({ error: 'Failed to fetch supplier statistics' });
   }
 });
 

@@ -50,7 +50,7 @@ export const useDriverDashboard = (driverId, { autoStartTracking = true } = {}) 
   const loadDriverLocation = useCallback(async () => {
     try {
       console.log(`Loading location for driver: ${driverId}`);
-      const response = await fetch(`http://localhost:5000/api/drivers/${driverId}/location`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/drivers/${driverId}/location`);
       if (response.ok) {
         const data = await response.json();
         console.log(`Loaded location:`, data);

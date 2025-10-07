@@ -1,9 +1,24 @@
 // routes/driverRoutes.js
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const Driver = require('../models/Driver');
 const Delivery = require('../models/Delivery');
 const Emergency = require('../models/Emergency');
+const User = require('../models/users');
+
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization']
+  const token = authHeader
+  if (!token) return res.status(401).json({ message: 'Access token required' })
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Invalid token' })
+    req.userId = user.userId
+    next()
+  })
+}
 
 // Helper function to calculate distance between coordinates
 function calculateDistance(lat1, lng1, lat2, lng2) {

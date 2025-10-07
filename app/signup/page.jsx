@@ -23,7 +23,7 @@ export default function SignupPage() {
     const signupData = { name, email, mobile, password, category };
 
     try {
-      const res = await fetch("https://suplychain.onrender.com/api/auth/signup", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(signupData),
@@ -56,7 +56,7 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("https://suplychain.onrender.com/api/auth/verify-otp", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),

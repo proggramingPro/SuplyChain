@@ -3,7 +3,7 @@ const router = express.Router();
 const User = require('../models/users');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const sendEmail = require('../utils/mailer'); // Import mailer from Auth_api
+const { sendOTPEmail } = require('../utils/mailer'); // Import mailer from Auth_api
 require('dotenv').config();
 
 const otpStore = {};
@@ -15,7 +15,7 @@ function generateOtp() {
 
 //signup route
 router.post('/signup', async (req, res) => {
-  const { name, email, mobile, password } = req.body;
+  const { name, email, mobile, password, category } = req.body;
 
   try {
     // Check if user already exists
@@ -31,13 +31,14 @@ router.post('/signup', async (req, res) => {
     const otp = generateOtp();
     otpStore[email] = {
       otp,
-      userData: { name, email, mobile, password: hashedPassword },
+      userData: { name, email, mobile, password: hashedPassword, category },
       expiresAt: Date.now() + 5 * 60 * 1000
     };
+    console.log('Stored signup data:', { name, email, mobile, category }); // Debug log
 
     // Send OTP
     try {
-        await sendEmail(email, otp);
+        await sendOTPEmail(email, otp);
     } catch (error) {
         console.error('Error sending OTP:', error);
         delete otpStore[email];
@@ -60,6 +61,7 @@ router.post('/login', async (req, res) => {
     try {
         // Find user by email
         const user = await User.findOne({ email });
+        console.log('Found user:', user); // Debug log
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
@@ -70,6 +72,15 @@ router.post('/login', async (req, res) => {
         }
         // Generate token
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+        console.log('Login response data:', { // Debug log
+            token: token ? 'Generated' : 'Failed',
+            category: user.category,
+            user: {
+                name: user.name,
+                email: user.email,
+                category: user.category
+            }
+        });
         res.json({
             token,
             category: user.category,
@@ -108,7 +119,9 @@ router.post('/verify-otp', async (req, res) => {
 
         // Create new user
         const newUser = new User(data.userData);
+        console.log('Creating user with data:', data.userData); // Debug log
         await newUser.save();
+        console.log('Saved user:', newUser); // Debug log
 
         // Generate JWT token
         const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, {

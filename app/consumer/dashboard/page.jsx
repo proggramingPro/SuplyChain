@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import io from 'socket.io-client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -25,9 +26,59 @@ export default function ConsumerDashboard() {
   const [deliveredThisMonth, setDeliveredThisMonth] = useState(0)
   const [packages, setPackages] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isClient, setIsClient] = useState(false)
+  const [userProfile, setUserProfile] = useState(null)
+  const [alerts, setAlerts] = useState([])
+  const [alertsCount, setAlertsCount] = useState(0)
+  const socketRef = useRef(null)
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    if (!isClient) return
+
+    socketRef.current = io(process.env.NEXT_PUBLIC_WS_URL)
+    
+    socketRef.current.on('connect', () => {
+      console.log('Consumer dashboard connected to WebSocket')
+    })
+
+    socketRef.current.on('delivery-status-update', (update) => {
+      console.log('Consumer received delivery update:', update)
+      setAlerts(prev => [...prev, {
+        id: Date.now(),
+        type: 'status_update',
+        message: `Your package ${update.deliveryId} status updated to ${update.status}`,
+        deliveryId: update.deliveryId,
+        status: update.status,
+        timestamp: new Date(update.timestamp),
+        severity: update.status === 'delivered' ? 'low' : 'medium'
+      }])
+      setAlertsCount(prev => prev + 1)
+    })
+
+    socketRef.current.on('shipment-update', (update) => {
+      console.log('Consumer received shipment update:', update)
+      setAlerts(prev => [...prev, {
+        id: Date.now(),
+        type: 'shipment_update',
+        message: `Package update: ${update.type.replace('_', ' ')}`,
+        shipmentId: update.shipmentId,
+        timestamp: new Date(update.timestamp),
+        severity: 'medium'
+      }])
+      setAlertsCount(prev => prev + 1)
+    })
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+      }
+    }
+  }, [isClient])
 
   useEffect(() => {
-    const fetchDeliveries = async () => {
+    setIsClient(true)
+    const fetchData = async () => {
       const token = localStorage.getItem('token')
       if (!token) {
         console.error('No token found')
@@ -36,14 +87,21 @@ export default function ConsumerDashboard() {
       }
 
       try {
-        const response = await fetch('https://suplychain.onrender.com/api/consumer/deliveries', {
-          headers: {
-            'authorization': `${token}`
-          }
-        })
+        // Fetch deliveries, stats, and profile in parallel
+        const [deliveriesResponse, statsResponse, profileResponse] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/consumer/deliveries`, {
+            headers: { 'authorization': token }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/consumer/stats`, {
+            headers: { 'authorization': token }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/consumer/profile`, {
+            headers: { 'authorization': token }
+          })
+        ]);
 
-        if (response.ok) {
-          const data = await response.json()
+        if (deliveriesResponse.ok) {
+          const data = await deliveriesResponse.json()
           console.log("Token from localStorage:", token)
           console.log("Fetched deliveries data:", data)
 
@@ -68,21 +126,23 @@ export default function ConsumerDashboard() {
           }))
 
           setPackages(mappedPackages)
-
-          // Calculate stats
-          const now = new Date()
-          const active = mappedPackages.filter(pkg => pkg.status !== 'Delivered').length
-          const deliveredThisMonthCount = mappedPackages.filter(pkg =>
-            pkg.status === 'Delivered' &&
-            pkg.estimatedDelivery &&
-            new Date(pkg.estimatedDelivery).getMonth() === now.getMonth() &&
-            new Date(pkg.estimatedDelivery).getFullYear() === now.getFullYear()
-          ).length
-
-          setActivePackages(active)
-          setDeliveredThisMonth(deliveredThisMonthCount)
         } else {
-          console.error('Failed to fetch deliveries:', response.status)
+          console.error('Failed to fetch deliveries:', deliveriesResponse.status)
+        }
+
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json()
+          setActivePackages(stats.activePackages)
+          setDeliveredThisMonth(stats.deliveredThisMonth)
+        } else {
+          console.error('Failed to fetch stats:', statsResponse.status)
+        }
+
+        if (profileResponse.ok) {
+          const profile = await profileResponse.json()
+          setUserProfile(profile)
+        } else {
+          console.error('Failed to fetch profile:', profileResponse.status)
         }
       } catch (error) {
         console.error('Error fetching deliveries:', error)
@@ -91,57 +151,40 @@ export default function ConsumerDashboard() {
       }
     }
 
-    fetchDeliveries()
+    fetchData()
   }, [])
 
-  const addresses = [
-    {
-      id: 1,
-      type: "Home",
-      address: "123 Main Street, Apt 4B",
-      city: "New York, NY 10001",
-      isDefault: true,
-    },
-    {
-      id: 2,
-      type: "Work",
-      address: "456 Business Ave, Suite 200",
-      city: "New York, NY 10002",
-      isDefault: false,
-    },
-  ]
+  const [addresses, setAddresses] = useState([])
 
-  const notifications = [
-    {
-      id: 1,
-      type: "delivery",
-      message: "Your package TRK001235 is out for delivery",
-      time: "2 hours ago",
-      read: false,
-    },
-    {
-      id: 2,
-      type: "delivered",
-      message: "Package TRK001236 has been delivered successfully",
-      time: "1 day ago",
-      read: true,
-    },
-    {
-      id: 3,
-      type: "delay",
-      message: "Package TRK001234 may be delayed due to weather",
-      time: "2 days ago",
-      read: true,
-    },
-  ]
+  // Clear alert function
+  const clearAlert = (alertId) => {
+    setAlerts(prev => prev.filter(alert => alert.id !== alertId))
+    setAlertsCount(prev => Math.max(0, prev - 1))
+  }
+
+  const clearAllAlerts = () => {
+    setAlerts([])
+    setAlertsCount(0)
+  }
+
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <DashboardHeader
         title="My Packages"
-        description="Track and manage your deliveries"
-        alertsCount={notifications.filter((n) => !n.read).length}
+        description={userProfile ? `Welcome back, ${userProfile.name}` : "Track and manage your deliveries"}
+        alertsCount={alertsCount}
+        alerts={alerts}
+        onClearAlert={clearAlert}
+        onClearAllAlerts={clearAllAlerts}
       />
 
       <div className="p-6">
@@ -165,7 +208,7 @@ export default function ConsumerDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{deliveredThisMonth}</div>
-              <p className="text-xs text-gray-600">+3 from last month</p>
+              <p className="text-xs text-gray-600">{deliveredThisMonth > 0 ? `${deliveredThisMonth} this month` : 'No deliveries this month'}</p>
             </CardContent>
           </Card>
 
@@ -183,11 +226,10 @@ export default function ConsumerDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="packages" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="packages">My Packages</TabsTrigger>
             <TabsTrigger value="track">Track Package</TabsTrigger>
             <TabsTrigger value="addresses">Addresses</TabsTrigger>
-            <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
 
           {/* Packages Tab */}
@@ -206,8 +248,14 @@ export default function ConsumerDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  {packages.map((pkg) => (
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span className="ml-2">Loading packages...</span>
+                  </div>
+                ) : packages.length > 0 ? (
+                  <div className="space-y-6">
+                    {packages.map((pkg) => (
                     <div key={pkg.id} className="border rounded-lg p-6 hover:bg-gray-50 transition-colors">
                       <div className="flex items-start justify-between mb-4">
                         <div>
@@ -286,8 +334,15 @@ export default function ConsumerDashboard() {
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No packages yet</h3>
+                    <p className="text-gray-600">You don't have any packages to track at the moment.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -335,126 +390,50 @@ export default function ConsumerDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {addresses.map((address) => (
-                    <div key={address.id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <Home className="h-5 w-5 text-gray-600 mt-1" />
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{address.type}</span>
-                              {address.isDefault && <Badge variant="secondary">Default</Badge>}
+                {addresses.length > 0 ? (
+                  <div className="space-y-4">
+                    {addresses.map((address) => (
+                      <div key={address.id} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <Home className="h-5 w-5 text-gray-600 mt-1" />
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium">{address.type}</span>
+                                {address.isDefault && <Badge variant="secondary">Default</Badge>}
+                              </div>
+                              <p className="text-gray-600">{address.address}</p>
+                              <p className="text-gray-600">{address.city}</p>
                             </div>
-                            <p className="text-gray-600">{address.address}</p>
-                            <p className="text-gray-600">{address.city}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">
+                              Edit
+                            </Button>
+                            {!address.isDefault && (
+                              <Button variant="outline" size="sm">
+                                Set Default
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            Edit
-                          </Button>
-                          {!address.isDefault && (
-                            <Button variant="outline" size="sm">
-                              Set Default
-                            </Button>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Home className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No addresses saved</h3>
+                    <p className="text-gray-600">Add your first delivery address to get started.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Account Tab */}
-          <TabsContent value="account" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Information</CardTitle>
-                  <CardDescription>Update your personal details</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" defaultValue="John Doe" />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" defaultValue="john.doe@example.com" />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" defaultValue="+1 (555) 123-4567" />
-                  </div>
-                  <Button>Update Profile</Button>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notification Preferences</CardTitle>
-                  <CardDescription>Choose how you want to receive updates</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Email Notifications</div>
-                      <div className="text-sm text-gray-600">Receive updates via email</div>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Enabled
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">SMS Notifications</div>
-                      <div className="text-sm text-gray-600">Receive updates via text message</div>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Enabled
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Push Notifications</div>
-                      <div className="text-sm text-gray-600">Receive browser notifications</div>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Disabled
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Your recent package tracking activity</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {notifications.map((notification) => (
-                    <div key={notification.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50">
-                      <div className="mt-1">
-                        {notification.type === "delivery" && <Truck className="h-4 w-4 text-blue-600" />}
-                        {notification.type === "delivered" && <CheckCircle className="h-4 w-4 text-green-600" />}
-                        {notification.type === "delay" && <AlertCircle className="h-4 w-4 text-red-600" />}
-                      </div>
-                      <div className="flex-1">
-                        <p className={`text-sm ${!notification.read ? "font-medium" : ""}`}>{notification.message}</p>
-                        <p className="text-xs text-gray-500">{notification.time}</p>
-                      </div>
-                      {!notification.read && <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
         </Tabs>
       </div>
     </div>

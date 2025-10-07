@@ -4,28 +4,31 @@ const nodemailer = require("nodemailer");
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "ranjit.pawar2005@gmail.com",     // your Gmail
-    pass: "yehp robc zlym ipju",            // your Gmail App Password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   },
 });
 
-async function sendEmail(to, otp) {
+async function sendEmail(to, subject, body) {
   const mailOptions = {
-    from: "ranjit.pawar2005@gmail.com",    // must match auth.user
+    from: process.env.EMAIL_USER,
     to,
-    subject: "Your OTP Code",
-    text: `Your OTP is: ${otp}`,
-    // ✅ If you want HTML too:
-    // html: `<h2>Your OTP is: <b>${otp}</b></h2>`,
+    subject: subject || "Notification",
+    html: body || subject
   };
 
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log("✅ Email sent:", info.response);
   } catch (error) {
-    console.error("❌ Error sending OTP:", error);
-    throw error; // rethrow so your signup route catches it
+    console.error("❌ Error sending email:", error);
+    throw error;
   }
 }
 
-module.exports = sendEmail;
+// Legacy OTP function
+async function sendOTPEmail(to, otp) {
+  await sendEmail(to, "Your OTP Code", `Your OTP is: ${otp}`);
+}
+
+module.exports = { sendEmail, sendOTPEmail };
