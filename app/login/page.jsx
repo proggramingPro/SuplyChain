@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -29,16 +30,10 @@ export default function LoginPage() {
       if (res.ok) {
         localStorage.setItem("token", data.token);
 
-        // Redirect based on category
-        if (data.category === "consumer") {
-          router.push("/consumer/dashboard");
-        } else if (data.category === "supplier") {
-          router.push("/supplier/dashboard");
-        } else if (data.category === "driver") {
-          router.push("/drivers/dashboard");
-        } else {
-          router.push("/");
-        }
+        if (data.category === "consumer") router.push("/consumer/dashboard");
+        else if (data.category === "supplier") router.push("/supplier/dashboard");
+        else if (data.category === "driver") router.push("/drivers/dashboard");
+        else router.push("/");
       } else {
         alert(data.message || "Login failed");
       }
@@ -51,9 +46,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 bg-cover bg-center"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.9)), url('/images/minimal-world-map.svg')",
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 backdrop-blur-md"
+      >
+        <h2 className="text-3xl font-bold text-gray-900 text-center mb-6">
           Login
         </h2>
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -84,7 +90,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 cursor-pointer rounded-lg text-white font-semibold text-lg transition transform ${
+            className={`w-full py-3 rounded-lg text-white font-semibold text-lg transition transform ${
               isLoading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-md"
@@ -94,16 +100,16 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-gray-600 mt-6">
+        <p className="text-center text-gray-700 mt-6">
           Don&apos;t have an account?{" "}
           <Link
             href="/signup"
-            className="text-blue-600 font-bold hover:underline text-lg"
+            className="text-blue-600 font-bold hover:underline"
           >
             Sign up here
           </Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }
