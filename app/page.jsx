@@ -62,7 +62,7 @@ export default function HomePage() {
             <div className="flex items-center gap-3 cursor-pointer">
               <Truck className="h-10 w-10 text-blue-600 animate-bounce" />
               <h1 className="text-3xl font-extrabold tracking-tight">
-                SupplyTrack Pro
+                IntelRoute
               </h1>
             </div>
           </Link>
