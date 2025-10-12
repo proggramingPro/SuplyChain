@@ -39,7 +39,7 @@ import {
 import { useDriverDashboard } from "@/hooks/useDriverDashboard";
 import SupplyChainAPI from "@/backend/lib/api";
 import DelayAnalysisCard from "@/components/DelayAnalysisCard";
-import DelayTestPanel from "@/components/DelayTestPanel";
+
 
 function DriverDashboardContent() {
   const searchParams = useSearchParams();
@@ -834,8 +834,7 @@ function DriverDashboardContent() {
               <TabsContent value="current" className="space-y-4">
                 {formattedDelivery ? (
                   <>
-                    {/* Test Panel - Remove in production */}
-                    <DelayTestPanel onTestResult={(data) => console.log('Test Result:', data)} />
+
 
                     {/* Delay Analysis Card */}
                     <DelayAnalysisCard

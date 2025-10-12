@@ -13,7 +13,7 @@ const driverRoutes = require("./routes/driverRoutes");
 const utilityRoutes = require("./routes/utilityRoutes");
 const consumerRoutes = require('./routes/consumerRoutes');
 const delayAnalysisRoutes = require('./routes/delayAnalysisRoutes');
-const testDelayRoutes = require('./routes/testDelayRoutes');
+
 const distanceRoutes = require('./routes/distanceRoutes');
 
 // --- Server Configuration ---
@@ -55,7 +55,7 @@ app.use("/api/deliveries", shipmentRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use('/api/consumer', consumerRoutes);
 app.use('/api/delay', delayAnalysisRoutes);
-app.use('/api/test', testDelayRoutes);
+
 app.use('/api/utils', distanceRoutes);
 
 console.log("-> All routes registered.");
