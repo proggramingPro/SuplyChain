@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import DelayAnalysisCard from "@/components/DelayAnalysisCard"
+import { useDelayAnalysis } from "@/hooks/useDelayAnalysis"
 import {
   Package,
   Truck,
@@ -29,12 +31,15 @@ import {
   Loader2,
   X,
   Trash2,
+  TrendingDown,
 } from "lucide-react"
 
 function SupplierDashboardContent() {
   const [activeShipments, setActiveShipments] = useState(12)
   const [completedToday, setCompletedToday] = useState(8)
   const [delayedShipments, setDelayedShipments] = useState(3)
+  const [analyticsData, setAnalyticsData] = useState(null)
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [showAddDriver, setShowAddDriver] = useState(false)
   const [newDriver, setNewDriver] = useState({ name: "", phone: "", email: "", licenseNumber: "", loginId: "", password: "" })
@@ -58,6 +63,40 @@ function SupplierDashboardContent() {
   const [isLoadingShipments, setIsLoadingShipments] = useState(true)
   const [isLoadingConsumers, setIsLoadingConsumers] = useState(true)
   const socketRef = useRef(null)
+
+  // Delay analysis for active shipments
+  const activeShipment = shipments.find(shipment => shipment.currentStatus !== 'delivered')
+  const { delayData, estimatedDelay } = useDelayAnalysis(
+    activeShipment?.orderId,
+    { lat: 19.0760, lng: 72.8777 }, // Mock current location
+    activeShipment?.destination || { lat: 18.5204, lng: 73.8567 }
+  )
+
+  // Add delay alerts to notifications
+  useEffect(() => {
+    if (delayData?.analysis && estimatedDelay > 0) {
+      const delayAlert = {
+        id: Date.now(),
+        type: 'delay_alert',
+        message: `Delivery delay detected: ${Math.round(estimatedDelay)} minutes expected delay for shipment ${activeShipment?.orderId}`,
+        shipmentId: activeShipment?.orderId,
+        timestamp: new Date(),
+        severity: estimatedDelay > 30 ? 'high' : 'medium'
+      }
+      
+      // Only add if not already present
+      setAlerts(prev => {
+        const hasDelayAlert = prev.some(alert => 
+          alert.type === 'delay_alert' && alert.shipmentId === activeShipment?.orderId
+        )
+        if (!hasDelayAlert) {
+          setNotifications(count => count + 1)
+          return [...prev, delayAlert]
+        }
+        return prev
+      })
+    }
+  }, [delayData, estimatedDelay, activeShipment?.orderId])
 
   // Set client-side flag
   useEffect(() => {
@@ -119,6 +158,7 @@ function SupplierDashboardContent() {
       // Refresh shipments and stats
       fetchShipments()
       fetchSupplierStats()
+      fetchAnalyticsData()
     })
 
     return () => {
@@ -135,6 +175,7 @@ function SupplierDashboardContent() {
       fetchShipments()
       fetchConsumers()
       fetchSupplierStats()
+      fetchAnalyticsData()
     }
   }, [isClient])
 
@@ -148,15 +189,16 @@ function SupplierDashboardContent() {
   const fetchDrivers = async () => {
     try {
       setIsLoadingDrivers(true)
-      console.log('Supplier dashboard: Fetching drivers...')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers`)
-      console.log('Supplier dashboard: Response status:', response.status)
+      
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Drivers API returned non-JSON response')
+        return
+      }
       
       if (response.ok) {
         const driversData = await response.json()
-        console.log('Supplier dashboard: Drivers data received:', driversData)
-        console.log('Supplier dashboard: Number of drivers:', driversData.length)
-        console.log('Supplier dashboard: Driver statuses:', driversData.map(d => ({ name: d.name, status: d.status })))
         setDrivers(driversData)
       } else {
         console.error('Failed to fetch drivers, status:', response.status)
@@ -173,6 +215,13 @@ function SupplierDashboardContent() {
     try {
       setIsLoadingShipments(true)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries`)
+      
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Shipments API returned non-JSON response')
+        return
+      }
+      
       if (response.ok) {
         const shipmentsData = await response.json()
         setShipments(shipmentsData)
@@ -217,9 +266,15 @@ function SupplierDashboardContent() {
   const fetchSupplierStats = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries/stats/supplier`)
+      
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Stats API returned non-JSON response')
+        return
+      }
+      
       if (response.ok) {
         const stats = await response.json()
-        // Update KPI cards with real-time database values
         setActiveShipments(stats.activeShipments)
         setCompletedToday(stats.completedToday)
         setDelayedShipments(stats.delayedShipments)
@@ -228,6 +283,31 @@ function SupplierDashboardContent() {
       }
     } catch (error) {
       console.error('Error fetching supplier stats:', error)
+    }
+  }
+
+  // Fetch comprehensive analytics data for analytics tab
+  const fetchAnalyticsData = async () => {
+    try {
+      setIsLoadingAnalytics(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries/analytics/supplier`)
+      
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('API returned non-JSON response:', contentType)
+        return
+      }
+      
+      if (response.ok) {
+        const analytics = await response.json()
+        setAnalyticsData(analytics)
+      } else {
+        console.error('Failed to fetch analytics:', response.status)
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error)
+    } finally {
+      setIsLoadingAnalytics(false)
     }
   }
 
@@ -607,12 +687,16 @@ function SupplierDashboardContent() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">On-Time Rate</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium">Delivery Status</CardTitle>
+              <TrendingDown className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">94.2%</div>
-              <p className="text-xs text-gray-600">+2.1% from last week</p>
+              <div className="text-2xl font-bold">
+                {estimatedDelay > 0 ? `${Math.round(estimatedDelay)} min` : 'On Time'}
+              </div>
+              <p className="text-xs text-gray-600">
+                {estimatedDelay > 0 ? 'Expected delay' : 'All deliveries on schedule'}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -620,7 +704,7 @@ function SupplierDashboardContent() {
 
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="shipments" className="space-y-6">
+        <Tabs defaultValue="analytics" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="shipments">Shipments</TabsTrigger>
             <TabsTrigger value="drivers">Drivers</TabsTrigger>
@@ -748,6 +832,19 @@ function SupplierDashboardContent() {
                           ></div>
                         </div>
                       </div>
+
+                      {/* Individual Delay Analysis for this shipment */}
+                      {shipment.currentStatus !== 'delivered' && (
+                        <div className="mt-4 pt-4 border-t">
+                          <h4 className="text-sm font-medium text-gray-700 mb-3">Delay Analysis for {shipment.orderId}</h4>
+                          <DelayAnalysisCard
+                            deliveryId={shipment.orderId}
+                            currentLocation={{ lat: 19.0760 + Math.random() * 0.1, lng: 72.8777 + Math.random() * 0.1 }}
+                            destination={shipment.destination || { lat: 18.5204, lng: 73.8567 }}
+                            className=""
+                          />
+                        </div>
+                      )}
                     </div>
                         );
                       })
@@ -930,61 +1027,167 @@ function SupplierDashboardContent() {
             </Card>
           </TabsContent>
 
+
+
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Performance Metrics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Average Delivery Time</span>
-                      <span className="font-semibold">2.4 hours</span>
+            {isLoadingAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2">Loading analytics...</span>
+              </div>
+            ) : analyticsData ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Performance Metrics</CardTitle>
+                    <CardDescription>Real-time operational performance data</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span>Average Delivery Time</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.averageDeliveryTime}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Customer Satisfaction</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.customerSatisfaction}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Cost per Delivery</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.costPerDelivery}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Fuel Efficiency</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.fuelEfficiency}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>On-Time Rate</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.onTimeRate}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Total Deliveries</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.totalDeliveries}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Customer Satisfaction</span>
-                      <span className="font-semibold">4.7/5.0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Cost per Delivery</span>
-                      <span className="font-semibold">$12.50</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Fuel Efficiency</span>
-                      <span className="font-semibold">15.2 MPG</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Risk Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Weather Delays</span>
-                      <Badge variant="outline">2 Active</Badge>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Risk Analysis</CardTitle>
+                    <CardDescription>Current operational risks and alerts</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span>Weather Delays</span>
+                        <Badge variant={
+                          analyticsData.riskAnalysis.weatherDelays.status === 'high' ? 'destructive' :
+                          analyticsData.riskAnalysis.weatherDelays.status === 'medium' ? 'default' : 'outline'
+                        }>
+                          {analyticsData.riskAnalysis.weatherDelays.count} Active
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Traffic Issues</span>
+                        <Badge variant={
+                          analyticsData.riskAnalysis.trafficIssues.status === 'high' ? 'destructive' :
+                          analyticsData.riskAnalysis.trafficIssues.status === 'medium' ? 'default' : 'outline'
+                        }>
+                          {analyticsData.riskAnalysis.trafficIssues.count > 0 ? `${analyticsData.riskAnalysis.trafficIssues.count} High Risk` : 'No Issues'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Delayed Shipments</span>
+                        <Badge variant={
+                          analyticsData.riskAnalysis.delayedShipments.status === 'high' ? 'destructive' :
+                          analyticsData.riskAnalysis.delayedShipments.status === 'medium' ? 'default' : 'secondary'
+                        }>
+                          {analyticsData.riskAnalysis.delayedShipments.count} Delayed
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Route Optimization</span>
+                        <Badge variant={
+                          analyticsData.riskAnalysis.routeOptimization.status === 'high' ? 'default' :
+                          analyticsData.riskAnalysis.routeOptimization.status === 'medium' ? 'secondary' : 'destructive'
+                        }>
+                          {analyticsData.riskAnalysis.routeOptimization.efficiency} Efficient
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Traffic Issues</span>
-                      <Badge variant="destructive">1 High Risk</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Driver Performance</CardTitle>
+                    <CardDescription>Driver utilization and performance metrics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span>Total Drivers</span>
+                        <span className="font-semibold">{analyticsData.driverMetrics.totalDrivers}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Active Drivers</span>
+                        <span className="font-semibold">{analyticsData.driverMetrics.activeDrivers}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Average Rating</span>
+                        <span className="font-semibold">⭐ {analyticsData.driverMetrics.averageRating}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Utilization Rate</span>
+                        <span className="font-semibold">{analyticsData.driverMetrics.utilizationRate}%</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Vehicle Maintenance</span>
-                      <Badge variant="secondary">3 Scheduled</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Weekly Overview</CardTitle>
+                    <CardDescription>This week's performance summary</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span>Weekly Deliveries</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.weeklyDeliveries}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Completion Rate</span>
+                        <span className="font-semibold">{analyticsData.performanceMetrics.onTimeRate}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Active Shipments</span>
+                        <span className="font-semibold">{activeShipments}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Completed Today</span>
+                        <span className="font-semibold">{completedToday}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Route Optimization</span>
-                      <Badge variant="default">94% Efficient</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics Unavailable</h3>
+                <p className="text-gray-600">Unable to load analytics data. Please try again later.</p>
+                <Button 
+                  onClick={fetchAnalyticsData} 
+                  variant="outline" 
+                  className="mt-4"
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Create Shipment Tab */}

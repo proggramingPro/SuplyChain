@@ -595,4 +595,30 @@ router.get('/:driverId/performance', async (req, res) => {
 });
 
 
+// Update driver distance stats
+router.post('/:driverId/update-distance', async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { distance } = req.body;
+
+    const driver = await Driver.findOne({ driverId });
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+
+    // Update total distance
+    driver.stats = {
+      ...driver.stats,
+      totalDistance: (driver.stats?.totalDistance || 0) + distance,
+      weeklyDistance: (driver.stats?.weeklyDistance || 0) + distance
+    };
+
+    await driver.save();
+    res.json({ message: 'Distance updated successfully', totalDistance: driver.stats.totalDistance });
+  } catch (error) {
+    console.error('Update distance error:', error);
+    res.status(500).json({ error: 'Failed to update distance' });
+  }
+});
+
 module.exports = router;

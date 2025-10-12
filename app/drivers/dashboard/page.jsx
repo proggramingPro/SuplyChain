@@ -38,12 +38,43 @@ import {
 // Import your custom hook
 import { useDriverDashboard } from "@/hooks/useDriverDashboard";
 import SupplyChainAPI from "@/backend/lib/api";
+import DelayAnalysisCard from "@/components/DelayAnalysisCard";
+import DelayTestPanel from "@/components/DelayTestPanel";
 
 function DriverDashboardContent() {
   const searchParams = useSearchParams();
   const urlDriverId = searchParams.get('driverId') || "DRIVER001";
   const [selectedDriverId, setSelectedDriverId] = useState(urlDriverId);
   const [availableDrivers, setAvailableDrivers] = useState([]);
+  const [realTimeStats, setRealTimeStats] = useState(null);
+  const [totalDistanceCovered, setTotalDistanceCovered] = useState(0);
+  const [deliveryHistory, setDeliveryHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Calculate distance using Gemini API
+  const calculateDistance = async (origin, destination) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/utils/calculate-distance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin, destination })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.distance || 0;
+      }
+    } catch (error) {
+      console.error('Distance calculation error:', error);
+    }
+    
+    // Fallback: simple distance calculation
+    const R = 6371; // Earth's radius in km
+    const dLat = (destination.lat - origin.lat) * Math.PI / 180;
+    const dLon = (destination.lng - origin.lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(origin.lat * Math.PI / 180) * Math.cos(destination.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    return Math.round(2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  };
 
   // Fetch available drivers from database
   const fetchAvailableDrivers = async () => {
@@ -116,6 +147,59 @@ function DriverDashboardContent() {
       return () => clearTimeout(timer);
     }
   }, [availableDrivers.length]);
+
+  // Fetch real-time driver stats
+  useEffect(() => {
+    const fetchDriverStats = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries/stats/driver/${selectedDriverId}`);
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const stats = await response.json();
+            setRealTimeStats(stats);
+          } else {
+            console.error('Driver stats API returned non-JSON response');
+          }
+        } else {
+          console.error('Driver stats API failed:', response.status);
+        }
+      } catch (error) {
+        console.error('Error fetching driver stats:', error);
+      }
+    };
+    
+    if (selectedDriverId) {
+      fetchDriverStats();
+      const interval = setInterval(fetchDriverStats, 30000); // Update every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [selectedDriverId]);
+
+  // Fetch delivery history
+  useEffect(() => {
+    const fetchDeliveryHistory = async () => {
+      if (!selectedDriverId) return;
+      
+      setIsLoadingHistory(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries/driver/${selectedDriverId}?status=delivered&limit=10`);
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const history = await response.json();
+            setDeliveryHistory(history);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching delivery history:', error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchDeliveryHistory();
+  }, [selectedDriverId]);
 
   const {
     currentDelivery,
@@ -244,6 +328,23 @@ function DriverDashboardContent() {
           : `✅ Successfully updated status to ${data.currentStatus || newStatus}`;
         
         alert(successMessage);
+        
+        // Calculate and update distance when delivery is completed
+        if (newStatus === 'delivered' && currentLocation && currentDelivery?.destination) {
+          const distance = await calculateDistance(currentLocation, currentDelivery.destination);
+          setTotalDistanceCovered(prev => prev + distance);
+          
+          // Update driver stats with new distance
+          try {
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drivers/${selectedDriverId}/update-distance`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ distance })
+            });
+          } catch (err) {
+            console.error('Failed to update driver distance:', err);
+          }
+        }
         
         // Refresh the delivery data to show updated status
         if (loadCurrentDelivery) {
@@ -431,7 +532,14 @@ function DriverDashboardContent() {
   };
 
   const formattedDelivery = getFormattedDelivery();
-  const formattedStats = driverStats || {
+
+  const formattedStats = realTimeStats ? {
+    rating: realTimeStats.rating || 4.5,
+    totalDeliveries: realTimeStats.assignedDeliveries || 0,
+    onTimeRate: Math.round(((realTimeStats.assignedDeliveries - realTimeStats.pendingDeliveries) / Math.max(realTimeStats.assignedDeliveries, 1)) * 100),
+    todayDeliveries: realTimeStats.completedToday || 0,
+    weeklyEarnings: realTimeStats.totalEarnings || 0,
+  } : {
     rating: 4.8,
     totalDeliveries: 156,
     onTimeRate: 94,
@@ -726,6 +834,17 @@ function DriverDashboardContent() {
               <TabsContent value="current" className="space-y-4">
                 {formattedDelivery ? (
                   <>
+                    {/* Test Panel - Remove in production */}
+                    <DelayTestPanel onTestResult={(data) => console.log('Test Result:', data)} />
+
+                    {/* Delay Analysis Card */}
+                    <DelayAnalysisCard
+                      deliveryId={currentDelivery?._id || currentDelivery?.id}
+                      currentLocation={currentLocation}
+                      destination={currentDelivery?.destination}
+                      className="mb-4"
+                    />
+
                     {/* Current Delivery Card */}
                     <Card>
                       <CardHeader className="pb-3">
@@ -1136,8 +1255,8 @@ function DriverDashboardContent() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Fuel Level</span>
                       <div className="flex items-center gap-2">
-                        <Progress value={75} className="w-20 h-2" />
-                        <span className="text-sm font-medium">75%</span>
+                        <Progress value={Math.max(20, 100 - (formattedStats.todayDeliveries * 8))} className="w-20 h-2" />
+                        <span className="text-sm font-medium">{Math.max(20, 100 - (formattedStats.todayDeliveries * 8))}%</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1148,8 +1267,14 @@ function DriverDashboardContent() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Next Service</span>
-                      <span className="text-sm font-medium">2,500 km</span>
+                      <span className="text-sm font-medium">{Math.max(500, 3000 - (formattedStats.totalDeliveries * 15))} km</span>
                     </div>
+                       <div className="flex justify-between">
+                        <span className="text-sm">Distance Covered</span>
+                        <span className="font-medium">
+                          {totalDistanceCovered || realTimeStats?.totalDistance || (formattedStats.totalDeliveries * 25)} km
+                        </span>
+                      </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1161,43 +1286,53 @@ function DriverDashboardContent() {
                     <CardTitle className="text-lg">Recent Deliveries</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {recentDeliveries.length > 0 ? (
-                        recentDeliveries.map((delivery) => (
-                          <div
-                            key={delivery.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div>
-                              <div className="font-medium text-sm">
-                                {delivery.id || delivery.orderId}
+                    {isLoadingHistory ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                        <span className="ml-2 text-sm">Loading history...</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {deliveryHistory.length > 0 ? (
+                          deliveryHistory.map((delivery) => (
+                            <div
+                              key={delivery._id || delivery.id}
+                              className="flex items-center justify-between p-3 border rounded-lg"
+                            >
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {delivery.orderId}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {delivery.customerName}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(delivery.updatedAt).toLocaleDateString()}
+                                </div>
                               </div>
-                              <div className="text-sm text-gray-600">
-                                {delivery.customer || delivery.customerName}
+                              <div className="text-right">
+                                <Badge variant="default" className="mb-1">
+                                  {delivery.currentStatus?.toUpperCase() || "DELIVERED"}
+                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-3 w-3 text-yellow-500" />
+                                  <span className="text-xs">
+                                    {delivery.customerFeedback?.rating || "N/A"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <Badge variant="default" className="mb-1">
-                                {delivery.status || "Delivered"}
-                              </Badge>
-                              <div className="flex items-center gap-1">
-                                <Star className="h-3 w-3 text-yellow-500" />
-                                <span className="text-xs">
-                                  {delivery.rating || 5}
-                                </span>
-                              </div>
-                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-4">
+                            <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">
+                              No delivery history found
+                            </p>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-4">
-                          <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">
-                            No recent deliveries
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1208,12 +1343,7 @@ function DriverDashboardContent() {
                   <CardContent>
                     <div className="space-y-3">
 
-                      <div className="flex justify-between">
-                        <span className="text-sm">Distance Covered</span>
-                        <span className="font-medium">
-                          {formattedStats.weeklyDistance || "1,247"} km
-                        </span>
-                      </div>
+                   
                       <div className="flex justify-between">
                         <span className="text-sm">Average Rating</span>
                         <span className="font-medium">

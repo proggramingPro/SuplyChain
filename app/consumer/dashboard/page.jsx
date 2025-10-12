@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardHeader } from "@/components/DashboardHeader"
+import DelayAnalysisCard from "@/components/DelayAnalysisCard"
+import { useDelayAnalysis } from "@/hooks/useDelayAnalysis"
 import {
   Package,
   MapPin,
@@ -19,6 +21,8 @@ import {
   CheckCircle,
   AlertCircle,
   Home,
+  TrendingDown,
+  Star,
 } from "lucide-react"
 
 export default function ConsumerDashboard() {
@@ -45,7 +49,7 @@ export default function ConsumerDashboard() {
     socketRef.current.on('delivery-status-update', (update) => {
       console.log('Consumer received delivery update:', update)
       setAlerts(prev => [...prev, {
-        id: Date.now(),
+        id: `status_${update.deliveryId}_${Date.now()}_${Math.random()}`,
         type: 'status_update',
         message: `Your package ${update.deliveryId} status updated to ${update.status}`,
         deliveryId: update.deliveryId,
@@ -59,7 +63,7 @@ export default function ConsumerDashboard() {
     socketRef.current.on('shipment-update', (update) => {
       console.log('Consumer received shipment update:', update)
       setAlerts(prev => [...prev, {
-        id: Date.now(),
+        id: `shipment_${update.shipmentId}_${Date.now()}_${Math.random()}`,
         type: 'shipment_update',
         message: `Package update: ${update.type.replace('_', ' ')}`,
         shipmentId: update.shipmentId,
@@ -155,6 +159,88 @@ export default function ConsumerDashboard() {
   }, [])
 
   const [addresses, setAddresses] = useState([])
+  const [feedbackRating, setFeedbackRating] = useState(0)
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [showFeedback, setShowFeedback] = useState(null)
+  const [ratedPackages, setRatedPackages] = useState(new Set())
+
+  // Load rated packages from localStorage on component mount
+  useEffect(() => {
+    if (isClient) {
+      const savedRatedPackages = localStorage.getItem('ratedPackages')
+      if (savedRatedPackages) {
+        try {
+          const parsedRated = JSON.parse(savedRatedPackages)
+          setRatedPackages(new Set(parsedRated))
+        } catch (error) {
+          console.error('Error parsing rated packages:', error)
+        }
+      }
+    }
+  }, [isClient])
+
+  const submitFeedback = async (deliveryId) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/deliveries/${deliveryId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': localStorage.getItem('token')
+        },
+        body: JSON.stringify({
+          rating: feedbackRating,
+          comment: feedbackComment
+        })
+      })
+
+      if (response.ok) {
+        alert('Feedback submitted successfully!')
+        setShowFeedback(null)
+        setFeedbackRating(0)
+        setFeedbackComment('')
+        setRatedPackages(prev => new Set([...prev, deliveryId]))
+      } else {
+        alert('Failed to submit feedback')
+      }
+    } catch (error) {
+      console.error('Feedback error:', error)
+      alert('Failed to submit feedback')
+    }
+  }
+
+  // Delay analysis for active packages
+  const activePackage = packages.find(pkg => pkg.status !== 'Delivered')
+  const { delayData, estimatedDelay } = useDelayAnalysis(
+    activePackage?.id,
+    { lat: 19.0760, lng: 72.8777 }, // Mock current location
+    { lat: 18.5204, lng: 73.8567 }  // Mock destination
+  )
+
+  // Add delay alerts to notifications
+  useEffect(() => {
+    if (delayData?.analysis && estimatedDelay > 0) {
+      const delayAlert = {
+        id: `delay_${activePackage?.id}_${Date.now()}_${Math.random()}`,
+        type: 'delay_alert',
+        message: `Delivery delay detected: ${Math.round(estimatedDelay)} minutes expected delay for package ${activePackage?.id}`,
+        deliveryId: activePackage?.id,
+        timestamp: new Date(),
+        severity: estimatedDelay > 30 ? 'high' : 'medium'
+      }
+      
+      // Only add if not already present
+      setAlerts(prev => {
+        const hasDelayAlert = prev.some(alert => 
+          alert.type === 'delay_alert' && alert.deliveryId === activePackage?.id
+        )
+        if (!hasDelayAlert) {
+          setAlertsCount(count => count + 1)
+          return [...prev, delayAlert]
+        }
+        return prev
+      })
+    }
+  }, [delayData, estimatedDelay, activePackage?.id])
 
   // Clear alert function
   const clearAlert = (alertId) => {
@@ -214,12 +300,16 @@ export default function ConsumerDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Delivery Time</CardTitle>
-              <Clock className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium">Delivery Status</CardTitle>
+              <TrendingDown className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2.1 days</div>
-              <p className="text-xs text-gray-600">Faster than average</p>
+              <div className="text-2xl font-bold">
+                {estimatedDelay > 0 ? `${Math.round(estimatedDelay)} min` : 'On Time'}
+              </div>
+              <p className="text-xs text-gray-600">
+                {estimatedDelay > 0 ? 'Expected delay' : 'All deliveries on schedule'}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -228,8 +318,8 @@ export default function ConsumerDashboard() {
         <Tabs defaultValue="packages" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="packages">My Packages</TabsTrigger>
-            <TabsTrigger value="track">Track Package</TabsTrigger>
             <TabsTrigger value="addresses">Addresses</TabsTrigger>
+            <TabsTrigger value="delays">Delay Analysis</TabsTrigger>
           </TabsList>
 
           {/* Packages Tab */}
@@ -333,6 +423,63 @@ export default function ConsumerDashboard() {
                           </div>
                         </div>
                       )}
+
+                      {pkg.status === "Delivered" && (
+                        <div className="mt-4">
+                          {showFeedback === pkg.id ? (
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <h4 className="font-medium mb-3">Rate your delivery experience</h4>
+                              <div className="flex items-center gap-2 mb-3">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    onClick={() => setFeedbackRating(star)}
+                                    className={`p-1 ${feedbackRating >= star ? 'text-yellow-500' : 'text-gray-300'}`}
+                                  >
+                                    <Star className="h-6 w-6 fill-current" />
+                                  </button>
+                                ))}
+                              </div>
+                              <Input
+                                placeholder="Share your experience (optional)"
+                                value={feedbackComment}
+                                onChange={(e) => setFeedbackComment(e.target.value)}
+                                className="mb-3"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => submitFeedback(pkg.id)}
+                                  disabled={feedbackRating === 0}
+                                  size="sm"
+                                >
+                                  Submit Feedback
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setShowFeedback(null)}
+                                  size="sm"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : !ratedPackages.has(pkg.id) ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowFeedback(pkg.id)}
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            >
+                              <Star className="h-4 w-4 mr-2" />
+                              Rate Driver
+                            </Button>
+                          ) : (
+                            <div className="text-sm text-green-600 font-medium">
+                              ✓ Feedback submitted
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     ))}
                   </div>
@@ -347,32 +494,7 @@ export default function ConsumerDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Track Package Tab */}
-          <TabsContent value="track" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Track a Package</CardTitle>
-                <CardDescription>Enter your tracking number to get real-time updates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4 mb-6">
-                  <Input placeholder="Enter tracking number (e.g., TRK001234)" className="flex-1" />
-                  <Button>
-                    <Search className="h-4 w-4 mr-2" />
-                    Track Package
-                  </Button>
-                </div>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Enter a tracking number</h3>
-                  <p className="text-gray-600">
-                    Enter your tracking number above to see detailed delivery information and real-time updates.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Addresses Tab */}
           <TabsContent value="addresses" className="space-y-6">
@@ -431,8 +553,31 @@ export default function ConsumerDashboard() {
             </Card>
           </TabsContent>
 
-
-
+          {/* Delay Analysis Tab */}
+          <TabsContent value="delays" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Delivery Delay Analysis</CardTitle>
+                <CardDescription>Real-time analysis of potential delivery delays</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activePackage ? (
+                  <DelayAnalysisCard
+                    deliveryId={activePackage.id}
+                    currentLocation={{ lat: 19.0760, lng: 72.8777 }}
+                    destination={{ lat: 18.5204, lng: 73.8567 }}
+                    className=""
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No active deliveries</h3>
+                    <p className="text-gray-600">Delay analysis will appear here when you have active packages.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
         </Tabs>
       </div>

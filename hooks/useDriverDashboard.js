@@ -141,19 +141,30 @@ export const useDriverDashboard = (driverId, { autoStartTracking = true } = {}) 
   }, [driverId]); */
 
   // Start GPS location tracking
-  const startLocationTracking = useCallback(() => {
+  const startLocationTracking = useCallback(async () => {
     if (!navigator.geolocation) {
       setError("Geolocation not supported");
       return;
     }
 
+    // Check permissions first
+    try {
+      const permission = await navigator.permissions.query({name: 'geolocation'});
+      if (permission.state === 'denied') {
+        throw new Error('Location permission denied');
+      }
+    } catch (permError) {
+      console.warn('Permission check failed:', permError);
+    }
+
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 60000, // 1 minute
+      timeout: 15000,
+      maximumAge: 30000,
     };
 
-    locationWatchId.current = navigator.geolocation.watchPosition(
+    // Try to get current position first
+    navigator.geolocation.getCurrentPosition(
       (position) => {
         const newLocation = {
           lat: position.coords.latitude,
@@ -161,24 +172,58 @@ export const useDriverDashboard = (driverId, { autoStartTracking = true } = {}) 
           accuracy: position.coords.accuracy,
           timestamp: new Date(),
         };
-
         setCurrentLocation(newLocation);
-
-        // Update location on server
-        updateLocationOnServer(newLocation);
+        // Update location on server inline
+        SupplyChainAPI.updateDriverLocation(driverId, newLocation).catch(err => 
+          console.error('Failed to update location:', err)
+        );
+        
+        // Start watching after successful initial position
+        locationWatchId.current = navigator.geolocation.watchPosition(
+          (position) => {
+            const newLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              timestamp: new Date(),
+            };
+            setCurrentLocation(newLocation);
+            // Update location on server inline
+            SupplyChainAPI.updateDriverLocation(driverId, newLocation).catch(err => 
+              console.error('Failed to update location:', err)
+            );
+          },
+          (error) => {
+            console.warn('Watch position error:', error.code, error.message);
+          },
+          options
+        );
       },
       (error) => {
-        console.error("Geolocation error:", {
-          code: error.code,
-          message: error.message,
-        });
-        setError(`Failed to get location: ${error.message}`);
+        console.warn('Initial position error:', error.code, error.message);
+        
+        // Set fallback location
+        const fallbackLocation = {
+          lat: 19.0760,
+          lng: 72.8777,
+          accuracy: 0,
+          timestamp: new Date(),
+          isFallback: true
+        };
+        
+        setCurrentLocation(fallbackLocation);
+        setAlerts(prev => [...prev, {
+          type: "warning",
+          message: "Using demo location - Enable GPS for accurate tracking",
+          severity: "medium",
+          timestamp: new Date()
+        }]);
       },
       options
     );
 
     setIsTracking(true);
-  }, [isTracking]);
+  }, [driverId]);
 
   // Stop location tracking
   const stopLocationTracking = useCallback(() => {
